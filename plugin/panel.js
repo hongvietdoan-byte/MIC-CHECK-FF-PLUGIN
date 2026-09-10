@@ -29,8 +29,10 @@
     folderPath: null,
     cuesCandidates: [],
     videoCandidates: [],
+    srtCandidates: [],
     selectedCuesPath: null,
-    selectedVideoPath: null
+    selectedVideoPath: null,
+    selectedSrtPath: null
   };
 
   function updateMcRunEnabled() {
@@ -51,16 +53,19 @@
     const entries = await folderEntry.getEntries();
     const cuesCandidates = [];
     const videoCandidates = [];
+    const srtCandidates = [];
     for (const e of entries) {
       if (!e.isFile) continue;
       const name = e.name;
       if (/\.cues\.json$/i.test(name)) {
         cuesCandidates.push({ name, nativePath: e.nativePath });
+      } else if (name.toLowerCase().endsWith(".srt")) {
+        srtCandidates.push({ name, nativePath: e.nativePath });
       } else if (VIDEO_EXT.some((ext) => name.toLowerCase().endsWith(ext))) {
         videoCandidates.push({ name, nativePath: e.nativePath });
       }
     }
-    return { cuesCandidates, videoCandidates };
+    return { cuesCandidates, videoCandidates, srtCandidates };
   }
 
   function renderDetected() {
@@ -78,6 +83,21 @@
         <span>${mcState.cuesCandidates.length} file cues.json — chọn 1:</span></div>
         <div class="detected-row"><select id="mcCuesSelect" style="flex:1">
           ${mcState.cuesCandidates.map((c, i) => `<option value="${i}">${c.name}</option>`).join("")}
+        </select></div>`);
+    }
+
+    if (mcState.srtCandidates.length === 0) {
+      rows.push(`<div class="detected-row"><span class="detected-icon warn">–</span>
+        <span>Không thấy file .srt (tuỳ chọn — chỉ cần nếu muốn caption).</span></div>`);
+    } else if (mcState.srtCandidates.length === 1) {
+      rows.push(`<div class="detected-row"><span class="detected-icon ok">✓</span>
+        <span>SRT: ${mcState.srtCandidates[0].name} (sẽ tự import vào Project panel)</span></div>`);
+    } else {
+      rows.push(`<div class="detected-row"><span class="detected-icon warn">?</span>
+        <span>${mcState.srtCandidates.length} file .srt — chọn 1 (hoặc để trống):</span></div>
+        <div class="detected-row"><select id="mcSrtSelect" style="flex:1">
+          <option value="-1">(không dùng SRT)</option>
+          ${mcState.srtCandidates.map((c, i) => `<option value="${i}">${c.name}</option>`).join("")}
         </select></div>`);
     }
 
@@ -112,6 +132,13 @@
         mcState.selectedVideoPath = idx >= 0 ? mcState.videoCandidates[idx].nativePath : null;
       });
     }
+    const srtSelect = $("mcSrtSelect");
+    if (srtSelect) {
+      srtSelect.addEventListener("change", () => {
+        const idx = +srtSelect.value;
+        mcState.selectedSrtPath = idx >= 0 ? mcState.srtCandidates[idx].nativePath : null;
+      });
+    }
   }
 
   $("mcPickFolder").addEventListener("click", async () => {
@@ -129,13 +156,15 @@
     $("mcFolderPath").title = mcState.folderPath;
     logLine(`Đã chọn thư mục: ${mcState.folderPath}`);
 
-    const { cuesCandidates, videoCandidates } = await scanFolder(folderEntry);
+    const { cuesCandidates, videoCandidates, srtCandidates } = await scanFolder(folderEntry);
     mcState.cuesCandidates = cuesCandidates;
     mcState.videoCandidates = videoCandidates;
+    mcState.srtCandidates = srtCandidates;
     mcState.selectedCuesPath = cuesCandidates.length === 1 ? cuesCandidates[0].nativePath : null;
     mcState.selectedVideoPath = videoCandidates.length === 1 ? videoCandidates[0].nativePath : null;
+    mcState.selectedSrtPath = srtCandidates.length === 1 ? srtCandidates[0].nativePath : null;
 
-    logLine(`Dò được: ${cuesCandidates.length} cues.json, ${videoCandidates.length} video.`);
+    logLine(`Dò được: ${cuesCandidates.length} cues.json, ${srtCandidates.length} srt, ${videoCandidates.length} video.`);
     renderDetected();
 
     if (mcState.selectedCuesPath && !$("mcSequenceName").value.trim()) {
@@ -156,6 +185,7 @@
       const result = await runMicCheckWorkflow({
         cuesJsonPath: mcState.selectedCuesPath,
         backgroundVideoPath: mcState.selectedVideoPath || undefined,
+        srtPath: mcState.selectedSrtPath || undefined,
         imagesDir: mcState.folderPath,
         sequenceName,
         orientation

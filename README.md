@@ -41,12 +41,12 @@ python scripts/docx_to_mic_check.py "duong/dan/file.docx"
 ### Bước 2 — Chạy Mic Check trong Premiere
 
 1. Mở panel **Mic Check**.
-2. Bấm **Chọn** → chọn thư mục chứa `cues.json` + ảnh (+ video nền nếu có). Plugin tự dò file, nếu có nhiều lựa chọn sẽ cho chọn qua dropdown.
+2. Bấm **Chọn** → chọn thư mục chứa `cues.json` + ảnh (+ video nền, `.srt` nếu có). Plugin tự dò file, nếu có nhiều lựa chọn (nhiều video hoặc nhiều `.srt`) sẽ cho chọn qua dropdown.
 3. Nhập **Tên sequence** (gợi ý tự điền theo tên file cues.json).
 4. Chọn **Hướng khung hình** (Landscape 1920x1080 hoặc Portrait 1080x1920).
 5. Bấm **▶ Chạy Mic Check**. Plugin sẽ:
    - Tạo sequence mới ở 60fps đúng hướng đã chọn
-   - Import video nền + toàn bộ ảnh vào Project panel
+   - Import video nền + file `.srt` (nếu có) + toàn bộ ảnh vào Project panel
    - Đặt video nền và từng ảnh lên timeline đúng thời điểm + thời lượng theo `cues.json`
 
 ### Bước 3 — Verify
@@ -55,9 +55,9 @@ Bấm **✓ Verify** để plugin so sánh timeline hiện tại với `cues.jso
 
 ### Bước 4 — Thêm caption (thủ công)
 
-UXP API của Premiere hiện **không cho phép tạo Caption Track bằng script**. Bước này cần làm tay:
+UXP API của Premiere hiện **không cho phép gắn SRT vào Caption Track bằng script** — đây là bước duy nhất còn phải làm tay. File `.srt` đã được plugin tự import sẵn vào **Project panel** ở Bước 2 (không cần tìm lại ngoài File Explorer):
 1. Trong Premiere, tạo caption track: **Window → Text → Captions** hoặc kéo file `.srt` thẳng vào timeline.
-2. Kéo file `.srt` (được sinh ra ở Bước 1) vào track caption, đặt ở vị trí giây 0.
+2. Từ **Project panel**, kéo file `.srt` vào track caption, đặt ở vị trí giây 0.
 
 Sau đó có thể bấm lại **✓ Verify** — nếu đã kéo caption, panel sẽ báo số lượng caption item tìm thấy trên track.
 

@@ -489,6 +489,7 @@ async function setActiveSequenceTool({ name }) {
 async function runMicCheckWorkflow({
   cuesJsonPath,
   backgroundVideoPath,
+  srtPath,
   imagesDir,
   sequenceName,
   orientation = "landscape",
@@ -516,7 +517,11 @@ async function runMicCheckWorkflow({
   const dirNormalized = imagesDir.replace(/[\\/]+$/, "");
   const uniqueImageNames = [...new Set(cues.map((c) => c.image).filter(Boolean))];
   const imagePaths = uniqueImageNames.map((name) => `${dirNormalized}\\${name}`);
-  const allPaths = backgroundVideoPath ? [backgroundVideoPath, ...imagePaths] : imagePaths;
+  const allPaths = [
+    ...(backgroundVideoPath ? [backgroundVideoPath] : []),
+    ...(srtPath ? [srtPath] : []),
+    ...imagePaths
+  ];
 
   if (log) log(`Import ${allPaths.length} file media...`);
   const importResult = await importFilesToProject({ paths: allPaths });
@@ -556,10 +561,13 @@ async function runMicCheckWorkflow({
     images: placeResult,
     totalCues: cues.length,
     captionCuesAvailable: captionCues,
-    nextStep:
-      "Kéo file SRT tương ứng từ Project panel vào 1 caption track trên timeline (đảm bảo không còn " +
-      "caption track cũ nào trước đó, nếu không Premiere có thể giữ track cũ thay vì dùng SRT mới) — " +
-      "bước duy nhất chưa tự động hoá được, giới hạn thật của Premiere UXP."
+    srtImported: !!srtPath,
+    nextStep: srtPath
+      ? "File SRT đã được import vào Project panel. Kéo nó từ Project panel vào 1 caption track trên " +
+        "timeline (đảm bảo không còn caption track cũ nào trước đó, nếu không Premiere có thể giữ track " +
+        "cũ thay vì dùng SRT mới) — bước duy nhất chưa tự động hoá được, giới hạn thật của Premiere UXP."
+      : "Không có file SRT nào được truyền vào — nếu có caption, hãy tự import + kéo file SRT vào 1 " +
+        "caption track trên timeline."
   };
 }
 
