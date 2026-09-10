@@ -23,15 +23,6 @@
   $("pluginStatus").textContent = "🟢";
 
   // --------------------------------------------------------------------------
-  // Collapsible "Tool chung"
-  // --------------------------------------------------------------------------
-  $("toolsToggle").addEventListener("click", () => {
-    const section = $("toolsSection");
-    section.classList.toggle("collapsed");
-    $("toolsToggle").querySelector(".arrow").textContent = section.classList.contains("collapsed") ? "▸" : "▾";
-  });
-
-  // --------------------------------------------------------------------------
   // Mic Check
   // --------------------------------------------------------------------------
   let mcState = {
@@ -202,58 +193,6 @@
       logLine(`❌ Lỗi verify: ${e.message}`);
     } finally {
       updateMcRunEnabled();
-    }
-  });
-
-  // --------------------------------------------------------------------------
-  // Tool chung
-  // --------------------------------------------------------------------------
-  $("tCreateBtn").addEventListener("click", async () => {
-    const name = $("tCreateName").value.trim();
-    if (!name) { logLine("❌ Cần nhập tên sequence."); return; }
-    const orientation = $("tCreateOrientation").value;
-    const fps = parseFloat($("tCreateFps").value) || 60;
-    const frameWidth = orientation === "portrait" ? 1080 : 1920;
-    const frameHeight = orientation === "portrait" ? 1920 : 1080;
-    logLine(`Đang tạo sequence "${name}"...`);
-    try {
-      const r = await createSequence({ name, timebase: fps, frameWidth, frameHeight });
-      if (r.timebaseApplied) {
-        logLine(`✅ Tạo xong "${r.name}" — ${r.actualFps}fps, ${frameWidth}x${frameHeight}.`);
-      } else {
-        logLine(`⚠️ Tạo xong "${r.name}" nhưng KHÔNG set được fps: ${r.timebaseError}`);
-      }
-    } catch (e) {
-      logLine(`❌ Lỗi tạo sequence: ${e.message}`);
-    }
-  });
-
-  $("tClipBtn").addEventListener("click", async () => {
-    const itemName = $("tClipName").value.trim();
-    if (!itemName) { logLine("❌ Cần nhập tên item."); return; }
-    const startSeconds = parseFloat($("tClipStart").value) || 0;
-    const durationRaw = $("tClipDuration").value.trim();
-    const durationSeconds = durationRaw ? parseFloat(durationRaw) : undefined;
-    const videoTrackIndex = parseInt($("tClipTrack").value, 10) || 0;
-    const mode = $("tClipMode").value;
-    logLine(`Đang đặt "${itemName}" @ ${startSeconds}s (track ${videoTrackIndex}, ${mode})...`);
-    try {
-      const r = await insertOrOverwriteClip({ itemName, startSeconds, durationSeconds, videoTrackIndex, mode });
-      logLine(`✅ Đặt xong tại ${r.finalStartSeconds.toFixed(3)}s${r.durationApplied ? `, dài ${r.durationSeconds}s` : ""}.`);
-    } catch (e) {
-      logLine(`❌ Lỗi đặt clip: ${e.message}`);
-    }
-  });
-
-  $("tDeleteBtn").addEventListener("click", async () => {
-    const name = $("tDeleteName").value.trim();
-    if (!name) { logLine("❌ Cần nhập tên sequence."); return; }
-    logLine(`Đang xoá sequence "${name}"...`);
-    try {
-      await deleteSequenceTool({ name });
-      logLine(`✅ Đã xoá "${name}".`);
-    } catch (e) {
-      logLine(`❌ Lỗi xoá sequence: ${e.message}`);
     }
   });
 

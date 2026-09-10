@@ -10,9 +10,7 @@
   .subtitle { color: #666; font-size: 10px; margin-bottom: 10px; }
 
   section { margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; }
-  section h4 { font-size: 11px; color: #fff; margin-bottom: 6px; cursor: pointer; user-select: none; }
-  section h4 .arrow { display: inline-block; width: 10px; }
-  section.collapsed .body { display: none; }
+  section h4 { font-size: 11px; color: #fff; margin-bottom: 6px; }
 
   .row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
   .row label { width: 88px; flex-shrink: 0; color: #999; }
@@ -71,54 +69,6 @@
       <div class="actions">
         <button id="mcRunBtn" class="primary" disabled>▶ Chạy Mic Check</button>
         <button id="mcVerifyBtn" disabled>✓ Verify</button>
-      </div>
-    </div>
-  </section>
-
-  <section id="toolsSection" class="collapsed">
-    <h4 id="toolsToggle"><span class="arrow">▸</span> Tool chung</h4>
-    <div class="body">
-      <div class="row">
-        <label>Tên sequence mới</label>
-        <input type="text" id="tCreateName" placeholder="vd: My Sequence">
-      </div>
-      <div class="row">
-        <label>Hướng</label>
-        <select id="tCreateOrientation">
-          <option value="landscape">Landscape 1920x1080</option>
-          <option value="portrait">Portrait 1080x1920</option>
-        </select>
-      </div>
-      <div class="row">
-        <label>FPS</label>
-        <input type="number" id="tCreateFps" value="60" step="0.001">
-        <button id="tCreateBtn">Tạo sequence</button>
-      </div>
-
-      <div class="row" style="margin-top:8px">
-        <label>Tên item</label>
-        <input type="text" id="tClipName" placeholder="Tên item trong Project panel">
-      </div>
-      <div class="row">
-        <label>Bắt đầu (s)</label>
-        <input type="number" id="tClipStart" value="0" step="0.01">
-        <label style="width:auto">Dài (s)</label>
-        <input type="number" id="tClipDuration" placeholder="(mặc định)" step="0.01">
-      </div>
-      <div class="row">
-        <label>Video track</label>
-        <input type="number" id="tClipTrack" value="0" step="1" style="max-width:60px">
-        <select id="tClipMode" style="flex:1">
-          <option value="overwrite">Overwrite</option>
-          <option value="insert">Insert</option>
-        </select>
-        <button id="tClipBtn">Đặt clip</button>
-      </div>
-
-      <div class="row" style="margin-top:8px">
-        <label>Xoá sequence</label>
-        <input type="text" id="tDeleteName" placeholder="Tên sequence cần xoá">
-        <button id="tDeleteBtn" class="danger">Xoá</button>
       </div>
     </div>
   </section>

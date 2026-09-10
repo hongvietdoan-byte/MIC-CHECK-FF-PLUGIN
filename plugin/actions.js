@@ -271,18 +271,11 @@ async function insertOrOverwriteClip({ itemName, startSeconds, videoTrackIndex =
   };
 }
 
-async function insertClip(params, log) {
-  return insertOrOverwriteClip({ ...params, mode: "insert" }, log);
-}
-
-async function overwriteClip(params, log) {
-  return insertOrOverwriteClip({ ...params, mode: "overwrite" }, log);
-}
-
 // Đặt nhiều clip trong 1 lệnh — có delay nhỏ giữa mỗi placement để giảm rủi ro crash Premiere khi
-// dồn quá nhiều executeTransaction liên tiếp (đã gặp crash thật 1 lần trong quá trình phát triển
-// với batch 64 item không delay — xem README.md).
-const BATCH_PLACEMENT_DELAY_MS = 80;
+// dồn quá nhiều executeTransaction liên tiếp. Premiere đã crash thật nhiều lần trong quá trình phát
+// triển kể cả với delay 80ms (crash quan sát được ở khoảng placement 37-38/64) — 150ms giảm tần suất
+// nhưng KHÔNG loại bỏ hoàn toàn rủi ro; xem README.md mục "Ghi chú / giới hạn đã biết".
+const BATCH_PLACEMENT_DELAY_MS = 150;
 
 async function batchPlaceClips({ placements }, log) {
   if (!Array.isArray(placements) || placements.length === 0) {
@@ -324,35 +317,6 @@ async function _resolveSequenceByName(project, sequenceName) {
     try { if ((s.name || (await s.getName())) === sequenceName) return s; } catch {}
   }
   throw new Error(`Không tìm thấy sequence "${sequenceName}" trong project.`);
-}
-
-async function getSequenceSettings({ sequenceName } = {}) {
-  const project = await ppro.Project.getActiveProject();
-  if (!project) throw new Error("Không tìm thấy project đang mở.");
-  const sequence = await _resolveSequenceByName(project, sequenceName);
-  if (!sequence) throw new Error("Không có sequence active và không truyền sequenceName.");
-
-  let name = null;
-  try { name = sequence.name || (await sequence.getName()); } catch {}
-
-  const settings = await sequence.getSettings();
-  if (typeof settings.getVideoFrameRate !== "function") {
-    throw new Error("SequenceSettings.getVideoFrameRate không tồn tại — cần Premiere Pro 26.2+.");
-  }
-
-  const frameRate = await settings.getVideoFrameRate();
-  const rect = await settings.getVideoFrameRect();
-  let timebaseRaw = null;
-  try { timebaseRaw = await sequence.getTimebase(); } catch {}
-
-  return {
-    name,
-    fps: frameRate ? frameRate.value : null,
-    ticksPerFrame: frameRate ? frameRate.ticksPerFrame : null,
-    frameWidth: rect ? rect.width : null,
-    frameHeight: rect ? rect.height : null,
-    timebaseRaw
-  };
 }
 
 // Canonical rational fps — KHÔNG so sánh 59.94/29.97/23.976 bằng float trực tiếp.
@@ -515,35 +479,6 @@ async function setActiveSequenceTool({ name }) {
   }
 
   return { activated: true, name };
-}
-
-async function deleteSequenceTool({ name }) {
-  if (!name) throw new Error("Phải truyền name của sequence cần xoá.");
-  const project = await ppro.Project.getActiveProject();
-  if (!project) throw new Error("Không tìm thấy project đang mở.");
-
-  const all = (await project.getSequences()) || [];
-  let target = null;
-  for (const s of all) {
-    try { if ((s.name || (await s.getName())) === name) { target = s; break; } } catch {}
-  }
-  if (!target) throw new Error(`Không tìm thấy sequence "${name}" trong project.`);
-  if (typeof project.deleteSequence !== "function") {
-    throw new Error("project.deleteSequence không tồn tại trong bản Premiere này.");
-  }
-
-  await project.deleteSequence(target);
-
-  const after = (await project.getSequences()) || [];
-  let stillExists = false;
-  for (const s of after) {
-    try { if ((s.name || (await s.getName())) === name) { stillExists = true; break; } } catch {}
-  }
-  if (stillExists) {
-    throw new Error(`deleteSequence() chạy xong nhưng "${name}" vẫn còn trong danh sách sequence.`);
-  }
-
-  return { deleted: true, name };
 }
 
 // ----------------------------------------------------------------------------

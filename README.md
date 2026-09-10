@@ -61,14 +61,6 @@ UXP API của Premiere hiện **không cho phép tạo Caption Track bằng scri
 
 Sau đó có thể bấm lại **✓ Verify** — nếu đã kéo caption, panel sẽ báo số lượng caption item tìm thấy trên track.
 
-## Tool chung (General Tools)
-
-Panel có thêm mục **"Tool chung"** (thu gọn mặc định, bấm để mở) với vài thao tác timeline cơ bản, dùng độc lập với Mic Check:
-
-- **Tạo sequence**: tạo sequence mới theo tên/hướng/fps tuỳ chỉnh.
-- **Đặt clip**: chèn (insert) hoặc ghi đè (overwrite) một item có sẵn trong Project panel vào timeline ở thời điểm/track/thời lượng chỉ định (item phải trùng tên với clip đã import vào Project panel).
-- **Xoá sequence**: xoá một sequence theo tên (thao tác không thể hoàn tác — kiểm tra kỹ tên trước khi bấm).
-
 ## Cấu trúc thư mục
 
 ```
@@ -90,4 +82,9 @@ mic-check-plugin/
 
 - Font chữ, cỡ chữ, vị trí caption trên track không thể chỉnh tự động qua script — chỉnh tay trong Premiere như bình thường.
 - Nếu hai cue ảnh có thời điểm bắt đầu cách nhau dưới 0.05 giây, việc dò clip vừa đặt có thể nhầm lẫn (trường hợp hiếm, chưa gặp trong dữ liệu thực tế).
-- Khi chạy Mic Check với số lượng ảnh lớn (50+), plugin tự giãn cách 80ms giữa mỗi lần đặt clip để tránh treo/crash Premiere — quá trình có thể mất vài chục giây, đừng thao tác vào Premiere trong lúc chạy.
+- Khi chạy Mic Check với số lượng ảnh lớn (50+), plugin tự giãn cách 150ms giữa mỗi lần đặt clip để giảm rủi ro treo/crash Premiere — quá trình có thể mất vài chục giây, đừng thao tác vào Premiere trong lúc chạy.
+- **Premiere Pro vẫn có thể tự đóng đột ngột (crash) giữa lúc chạy Mic Check** với các dự án nhiều ảnh (đây là giới hạn của bản thân Premiere khi dồn nhiều lệnh dựng timeline liên tiếp, không phải lỗi cú pháp cues.json). Nếu gặp crash:
+  1. Mở lại Premiere — dùng bản Auto-Save/Recovery gần nhất nếu được hỏi.
+  2. Mở lại panel Mic Check, **chọn lại đúng thư mục dự án** đó.
+  3. Bấm **▶ Chạy Mic Check** lại bình thường — thao tác đặt clip dùng chế độ overwrite nên idempotent (an toàn chạy lại nhiều lần), các ảnh đã đặt đúng vị trí trước đó sẽ chỉ bị ghi đè lại chứ không nhân đôi.
+  4. Nên **Save project (Ctrl+S)** thủ công trước khi chạy Mic Check với dự án nhiều ảnh, để có điểm khôi phục gần nhất nếu crash.
