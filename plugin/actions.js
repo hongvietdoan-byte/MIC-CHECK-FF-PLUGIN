@@ -774,9 +774,9 @@ async function setStaticKeyframe(param, value, atTick) {
   return param.createAddKeyframeAction(kf);
 }
 
-async function applyImageLayout({ xPercent, yPercent, scalePercent, videoTrackIndex }, log) {
-  if (xPercent == null || yPercent == null || scalePercent == null) {
-    throw new Error("Phải truyền xPercent, yPercent, scalePercent.");
+async function applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackIndex }, log) {
+  if (xPixels == null || yPixels == null || scalePercent == null) {
+    throw new Error("Phải truyền xPixels, yPixels, scalePercent.");
   }
   if (videoTrackIndex == null) throw new Error("Phải truyền videoTrackIndex (track ảnh cần chỉnh).");
 
@@ -793,9 +793,20 @@ async function applyImageLayout({ xPercent, yPercent, scalePercent, videoTrackIn
     throw new Error(`Track V${videoTrackIndex + 1} không có clip nào để áp dụng.`);
   }
 
-  const xFrac = xPercent / 100;
-  const yFrac = yPercent / 100;
-  if (log) log(`Áp Position (${xPercent}%, ${yPercent}%) + Scale ${scalePercent}% cho ${items.length} clip trên V${videoTrackIndex + 1}...`);
+  // Position của Motion nhận toạ độ CHUẨN HOÁ 0-1 (đã live-test xác nhận — 0.5,0.5 = giữa khung
+  // hình), nhưng Effect Controls của Premiere lại HIỂN THỊ pixel tuyệt đối (vd 960,540 cho khung
+  // 1920x1080). Để số trong panel khớp trực tiếp với số user nhìn thấy trong Premiere (dễ đối
+  // chiếu, tránh nhầm đơn vị như lúc test tay bị 150%/300% tràn khung), panel nhận PIXEL rồi tự quy
+  // đổi ở đây bằng đúng kích thước khung hình THẬT của sequence — không đoán theo hướng đã chọn lúc
+  // tạo sequence, phòng trường hợp user đổi Hướng sau hoặc mở lại project khác lúc chạy Mic Check.
+  const settings = await sequence.getSettings();
+  const frameRect = await settings.getVideoFrameRect();
+  const frameWidth = frameRect.width;
+  const frameHeight = frameRect.height;
+  const xFrac = xPixels / frameWidth;
+  const yFrac = yPixels / frameHeight;
+  if (log) log(`Khung hình thật ${frameWidth}x${frameHeight} — Position (${xPixels}px, ${yPixels}px) = chuẩn hoá (${xFrac.toFixed(4)}, ${yFrac.toFixed(4)}).`);
+  if (log) log(`Áp Position (${xPixels}px, ${yPixels}px) + Scale ${scalePercent}% cho ${items.length} clip trên V${videoTrackIndex + 1}...`);
 
   const results = [];
   for (let i = 0; i < items.length; i++) {
@@ -842,6 +853,6 @@ async function applyImageLayout({ xPercent, yPercent, scalePercent, videoTrackIn
     total: items.length,
     applied: results.length - failed.length,
     failed,
-    xPercent, yPercent, scalePercent, videoTrackIndex
+    xPixels, yPixels, scalePercent, videoTrackIndex, frameWidth, frameHeight
   };
 }

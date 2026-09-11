@@ -201,7 +201,7 @@
         }, (msg) => logLine("  " + msg));
 
         logLine(`  ✅ "${result.sequenceName}" (${result.actualFps}fps) — ảnh: ${result.images.placed}/${result.totalCues}.`);
-        $("mcLayoutTrack").value = result.imageVideoTrackIndex; // tự điền đúng track ảnh cho mục "Chỉnh vị trí ảnh" bên dưới
+        $("mcLayoutTrack").value = result.imageVideoTrackIndex + 1; // +1: đổi từ chỉ số 0-based nội bộ sang số V Premiere hiển thị (V1=1, V2=2...)
         if (result.images.missingPlayers && result.images.missingPlayers.length > 0) {
           logLine(`  ⚠️ Không tìm thấy ảnh cho: ${result.images.missingPlayers.join(", ")}`);
         }
@@ -268,42 +268,52 @@
 
   // --------------------------------------------------------------------------
   // Chỉnh vị trí ảnh — áp Position/Scale hàng loạt cho mọi clip trên 1 track, dùng SAU khi đã có
-  // sequence với ảnh (chạy Mic Check trước, hoặc set tay số track). Preset chỉ là điểm khởi đầu gợi
-  // ý (margin an toàn ~15%) — Scale thật phụ thuộc kích thước ảnh gốc (Premiere không cho đọc qua
-  // script), nên vẫn cần tự canh mắt qua Program Monitor rồi chỉnh lại "Tuỳ chỉnh" nếu chưa vừa.
+  // sequence với ảnh (chạy Mic Check trước, hoặc set tay số track). X/Y nhập bằng PIXEL TUYỆT ĐỐI —
+  // cố tình khớp ĐÚNG đơn vị Premiere hiển thị trong Effect Controls > Motion > Position, để dễ đối
+  // chiếu/ước lượng (khác bản đầu dùng %, gây nhầm 150%/300% tràn khung hình). Mặc định X/Y = giữa
+  // khung hình, Scale = 100 — tức "chưa đổi gì" so với gốc, giống hệt số Motion mặc định thật.
   // --------------------------------------------------------------------------
-  const LAYOUT_PRESETS = {
-    bl: { x: 15, y: 85 },
-    br: { x: 85, y: 85 },
-    tl: { x: 15, y: 15 },
-    tr: { x: 85, y: 15 },
-    bc: { x: 50, y: 85 }
-  };
+  function currentFrameSize() {
+    return $("mcOrientation").value === "portrait" ? { w: 1080, h: 1920 } : { w: 1920, h: 1080 };
+  }
 
-  $("mcLayoutPreset").addEventListener("change", () => {
-    const preset = LAYOUT_PRESETS[$("mcLayoutPreset").value];
-    if (!preset) return; // "custom" — giữ nguyên số user đang gõ
-    $("mcLayoutX").value = preset.x;
-    $("mcLayoutY").value = preset.y;
+  function resetLayoutDefaults() {
+    const { w, h } = currentFrameSize();
+    $("mcLayoutX").value = Math.round(w / 2);
+    $("mcLayoutY").value = Math.round(h / 2);
+    $("mcLayoutScale").value = 100;
+  }
+  resetLayoutDefaults();
+  $("mcOrientation").addEventListener("change", resetLayoutDefaults);
+
+  $("mcZoneGrid").addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".zone-btn");
+    if (!btn) return;
+    document.querySelectorAll("#mcZoneGrid .zone-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    const { w, h } = currentFrameSize();
+    $("mcLayoutX").value = Math.round(parseFloat(btn.dataset.x) * w);
+    $("mcLayoutY").value = Math.round(parseFloat(btn.dataset.y) * h);
   });
 
   $("mcLayoutBtn").addEventListener("click", async () => {
     $("mcLayoutBtn").disabled = true;
-    const videoTrackIndex = parseInt($("mcLayoutTrack").value, 10);
-    const xPercent = parseFloat($("mcLayoutX").value);
-    const yPercent = parseFloat($("mcLayoutY").value);
+    const vNumber = parseInt($("mcLayoutTrack").value, 10); // 1 = V1, 2 = V2... (đúng số Premiere hiển thị)
+    const xPixels = parseFloat($("mcLayoutX").value);
+    const yPixels = parseFloat($("mcLayoutY").value);
     const scalePercent = parseFloat($("mcLayoutScale").value);
 
-    if (Number.isNaN(videoTrackIndex) || Number.isNaN(xPercent) || Number.isNaN(yPercent) || Number.isNaN(scalePercent)) {
-      logLine("❌ Track/X/Y/Scale phải là số hợp lệ.");
+    if (Number.isNaN(vNumber) || vNumber < 1 || Number.isNaN(xPixels) || Number.isNaN(yPixels) || Number.isNaN(scalePercent)) {
+      logLine("❌ Track (≥1)/X/Y/Scale phải là số hợp lệ.");
       $("mcLayoutBtn").disabled = false;
       return;
     }
+    const videoTrackIndex = vNumber - 1; // Premiere API dùng chỉ số 0-based nội bộ
 
-    logLine(`▶ Áp vị trí ảnh: track V${videoTrackIndex + 1}, X=${xPercent}%, Y=${yPercent}%, Scale=${scalePercent}%...`);
+    logLine(`▶ Áp vị trí ảnh: track V${vNumber}, Position=(${xPixels}px, ${yPixels}px), Scale=${scalePercent}%...`);
     try {
-      const result = await applyImageLayout({ xPercent, yPercent, scalePercent, videoTrackIndex }, (msg) => logLine("  " + msg));
-      logLine(`✅ Đã áp cho ${result.applied}/${result.total} clip trên V${videoTrackIndex + 1}.`);
+      const result = await applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackIndex }, (msg) => logLine("  " + msg));
+      logLine(`✅ Đã áp cho ${result.applied}/${result.total} clip trên V${vNumber}.`);
       if (result.failed.length > 0) {
         logLine(`⚠️ ${result.failed.length} clip lỗi:`);
         for (const f of result.failed.slice(0, 5)) logLine(`   - index ${f.index}: ${f.error}`);
