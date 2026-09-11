@@ -10,8 +10,12 @@ thuộc giả định thứ tự dòng.
 
 Chạy NGOÀI Premiere (Python thuần) — không phụ thuộc UXP, không cần Claude cho các lần chạy lại.
 
-Usage:
-    python docx_to_mic_check.py --docx <path.docx> --images <thư mục ảnh> --out-dir <thư mục xuất>
+Usage (2 cách, cùng 1 script):
+    1) Kéo-thả: kéo file .docx tha thang vao docx_to_mic_check.exe (hoac file .py neu chay qua
+       python) — tu suy ra --images/--out-dir la thu muc chua file .docx do.
+           docx_to_mic_check.exe "duong/dan/file.docx"
+    2) Dong lenh, tuy chinh thu muc anh/xuat rieng:
+           python docx_to_mic_check.py --docx <path.docx> --images <thư mục ảnh> --out-dir <thư mục xuất>
 
 Số lượng ảnh KHÔNG hardcode — script tự đọc bất kỳ giá trị nào xuất hiện ở cột "Ảnh" trong docx.
 """
@@ -159,39 +163,92 @@ def write_srt(cues, srt_path: Path):
     srt_path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 
+BANNER = (
+    "===============================================\n"
+    "  Mic Check - Chuyen doi file .docx\n"
+    "===============================================\n"
+)
+
+
+def _pause_if_interactive():
+    # Khi build thành .exe và double-click/kéo-thả trực tiếp, console tự đóng ngay khi script kết
+    # thúc — user không kịp đọc log. "python x.py" chạy từ terminal có sẵn thì không cần pause thêm.
+    if getattr(sys, "frozen", False):
+        try:
+            input("\nNhan Enter de dong cua so nay...")
+        except (EOFError, KeyboardInterrupt):
+            pass
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--docx", required=True, type=Path)
-    ap.add_argument("--images", required=True, type=Path)
-    ap.add_argument("--out-dir", required=True, type=Path)
+    ap.add_argument(
+        "docx_dropped", nargs="?", type=Path,
+        help="(chế độ kéo-thả) đường dẫn file .docx — tự suy ra --images/--out-dir là thư mục chứa nó",
+    )
+    ap.add_argument("--docx", type=Path)
+    ap.add_argument("--images", type=Path)
+    ap.add_argument("--out-dir", type=Path)
     args = ap.parse_args()
 
-    print(f"Đọc docx: {args.docx}")
-    cues = parse_cues(args.docx)
-    print(f"Parse được {len(cues)} cue.")
+    print(BANNER)
 
-    print(f"Validate ảnh trong: {args.images}")
-    resolved_images = validate_images(cues, args.images)
-    for cue in cues:
-        if cue["image"]:
-            cue["image"] = resolved_images[cue["image"]]
+    docx_path = args.docx or args.docx_dropped
+    if docx_path is None:
+        print("Cach dung: KEO file .docx tha vao bieu tuong nay (khong phai mo file nay truc tiep).")
+        _pause_if_interactive()
+        sys.exit(1)
 
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-    stem = args.docx.stem
+    if docx_path.suffix.lower() != ".docx":
+        print(f'Loi: file vua tha khong phai .docx ("{docx_path}").')
+        _pause_if_interactive()
+        sys.exit(1)
 
-    json_path = args.out_dir / f"{stem}.cues.json"
-    output = {
-        "sourceDocx": args.docx.name,
-        "cueCount": len(cues),
-        "cues": cues,
-    }
-    json_path.write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n")
+    if not docx_path.is_file():
+        print(f'Loi: khong tim thay file "{docx_path}".')
+        _pause_if_interactive()
+        sys.exit(1)
 
-    srt_path = args.out_dir / f"{stem}.srt"
-    write_srt(cues, srt_path)
+    images_dir = args.images or docx_path.parent
+    out_dir = args.out_dir or docx_path.parent
 
-    print(f"✅ Đã ghi {json_path}")
-    print(f"✅ Đã ghi {srt_path} ({len(resolved_images)} ảnh khác nhau)")
+    print(f"File docx : {docx_path}")
+    print(f"Thu muc   : {images_dir}\n")
+
+    try:
+        print(f"Đọc docx: {docx_path}")
+        cues = parse_cues(docx_path)
+        print(f"Parse được {len(cues)} cue.")
+
+        print(f"Validate ảnh trong: {images_dir}")
+        resolved_images = validate_images(cues, images_dir)
+        for cue in cues:
+            if cue["image"]:
+                cue["image"] = resolved_images[cue["image"]]
+
+        out_dir.mkdir(parents=True, exist_ok=True)
+        stem = docx_path.stem
+
+        json_path = out_dir / f"{stem}.cues.json"
+        output = {
+            "sourceDocx": docx_path.name,
+            "cueCount": len(cues),
+            "cues": cues,
+        }
+        json_path.write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n")
+
+        srt_path = out_dir / f"{stem}.srt"
+        write_srt(cues, srt_path)
+
+        print(f"✅ Đã ghi {json_path}")
+        print(f"✅ Đã ghi {srt_path} ({len(resolved_images)} ảnh khác nhau)")
+        print(f'\n✅ Xong! Mo panel "Mic Check" trong Premiere, bam "Chon" chon dung thu muc:\n   {out_dir}')
+    except Exception as e:
+        print(f"\n❌ Co loi xay ra: {e}")
+        _pause_if_interactive()
+        sys.exit(1)
+
+    _pause_if_interactive()
 
 
 if __name__ == "__main__":
