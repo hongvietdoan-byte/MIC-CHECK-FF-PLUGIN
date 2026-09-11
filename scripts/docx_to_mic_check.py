@@ -1,26 +1,31 @@
 #!/usr/bin/env python3
 """
-docx_to_mic_check.py — Đọc bảng "Time Stamp | Player | EN | Ảnh" trong file .docx (mẫu Mic Check)
-và xuất RA CẢ 2 FILE: cues.json (dùng cho run_mic_check_workflow) và .srt (kéo vào caption track).
+docx_to_mic_check.py — Đọc bảng "Time Stamp | Player | EN" trong file .docx hoặc .csv (mẫu Mic
+Check) và xuất RA CẢ 2 FILE: cues.json (dùng cho run_mic_check_workflow) và .srt (kéo vào caption
+track).
 
-Xuất cả 2 từ CÙNG 1 nguồn dữ liệu (bảng docx) — đảm bảo SRT và JSON luôn khớp nhau tuyệt đối, không
-cần chuẩn bị .srt riêng nữa. Dùng python-docx đọc trực tiếp qua Table API (không regex/XML thô như
-bản Node docx_to_json.js trước đó) — bền hơn vì đọc đúng theo cấu trúc cell thật của Word, không phụ
+Ảnh nhân vật được xác định TRỰC TIẾP theo cột "Player" (vd "FL.ABCD" → tìm file "FL.ABCD.png" cùng
+thư mục) — không cần cột "Ảnh" riêng nữa, tận dụng luôn dữ liệu Player sẵn có trong bảng gốc.
+
+Xuất cả 2 từ CÙNG 1 nguồn dữ liệu (bảng) — đảm bảo SRT và JSON luôn khớp nhau tuyệt đối, không cần
+chuẩn bị .srt riêng nữa. Dùng python-docx đọc trực tiếp qua Table API cho .docx (không regex/XML
+thô), và module csv chuẩn cho .csv — bền hơn vì đọc đúng theo cấu trúc cell/dòng thật, không phụ
 thuộc giả định thứ tự dòng.
 
 Chạy NGOÀI Premiere (Python thuần) — không phụ thuộc UXP, không cần Claude cho các lần chạy lại.
 
 Usage (2 cách, cùng 1 script):
-    1) Kéo-thả: kéo file .docx tha thang vao Chuyen_Doi_File_Docx_Mic_Check.exe (hoac file .py
-       neu chay qua python) — tu suy ra --images/--out-dir la thu muc chua file .docx do.
-           Chuyen_Doi_File_Docx_Mic_Check.exe "duong/dan/file.docx"
+    1) Kéo-thả: kéo file .docx hoặc .csv tha thang vao Chuyen_Doi_File_Mic_Check.exe (hoac file .py
+       neu chay qua python) — tu suy ra --images/--out-dir la thu muc chua file do do.
+           Chuyen_Doi_File_Mic_Check.exe "duong/dan/file.docx"
     2) Dong lenh, tuy chinh thu muc anh/xuat rieng:
-           python docx_to_mic_check.py --docx <path.docx> --images <thư mục ảnh> --out-dir <thư mục xuất>
+           python docx_to_mic_check.py --input <path.docx|path.csv> --images <thư mục ảnh> --out-dir <thư mục xuất>
 
-Số lượng ảnh KHÔNG hardcode — script tự đọc bất kỳ giá trị nào xuất hiện ở cột "Ảnh" trong docx.
+Số lượng cue KHÔNG hardcode — script tự đọc bất kỳ số dòng nào có trong bảng/file.
 """
 
 import argparse
+import csv
 import json
 import re
 import sys
@@ -39,17 +44,49 @@ from docx import Document
 
 TIMESTAMP_RE = re.compile(r"(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)")
 
+SUPPORTED_EXTENSIONS = (".docx", ".csv")
+
+# Ký tự Windows cấm dùng trong tên file — chỉ để phòng hờ Player có ký tự lạ, không đổi tên bình
+# thường (vd "FL.ABCD" giữ nguyên, dấu chấm hợp lệ trong filename).
+_INVALID_FILENAME_CHARS_RE = re.compile(r'[<>:"/\\|?*]')
+
 
 def to_seconds(h, m, s, ms):
     return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
 
 
-def find_header_row(table):
+def load_rows(path: Path):
+    """Đọc file .docx/.csv thành list các dòng, mỗi dòng là list ô text đã strip() — chuẩn hoá về
+    1 định dạng chung để phần parse phía sau dùng chung logic, không quan tâm nguồn gốc file."""
+    suffix = path.suffix.lower()
+    if suffix == ".docx":
+        doc = Document(str(path))
+        if not doc.tables:
+            raise ValueError(f'File "{path}" không có bảng nào.')
+        table = doc.tables[0]
+        return [[cell.text.strip() for cell in row.cells] for row in table.rows]
+
+    if suffix == ".csv":
+        # utf-8-sig tự bỏ BOM nếu Excel/Google Sheets export kèm — không có BOM thì đọc utf-8 bình
+        # thường, không ảnh hưởng gì.
+        with open(path, "r", encoding="utf-8-sig", newline="") as f:
+            reader = csv.reader(f)
+            return [[cell.strip() for cell in row] for row in reader if row]
+
+    raise ValueError(
+        f'Định dạng file "{path.suffix}" chưa được hỗ trợ. Chỉ đọc được: '
+        + ", ".join(SUPPORTED_EXTENSIONS)
+    )
+
+
+def find_header_row(rows):
     """Tìm dòng header theo NỘI DUNG cell (không hardcode chỉ số dòng), rồi trả về chỉ số dòng +
-    mapping tên cột -> chỉ số cột. Bền hơn nếu cấu trúc bảng có thêm/bớt dòng trang trí phía trên."""
-    wanted = {"time stamp": "timestamp", "player": "player", "en": "text", "ảnh": "image"}
-    for row_idx, row in enumerate(table.rows):
-        cells_lower = [c.text.strip().lower() for c in row.cells]
+    mapping tên cột -> chỉ số cột. Bền hơn nếu cấu trúc bảng có thêm/bớt dòng trang trí phía trên.
+    Chỉ cần 3 cột "Time Stamp"/"Player"/"EN" — không còn yêu cầu cột "Ảnh" (ảnh giờ lấy trực tiếp
+    theo giá trị cột Player)."""
+    wanted = {"time stamp": "timestamp", "player": "player", "en": "text"}
+    for row_idx, row in enumerate(rows):
+        cells_lower = [c.lower() for c in row]
         col_map = {}
         for idx, cell_text in enumerate(cells_lower):
             for key, field in wanted.items():
@@ -58,22 +95,22 @@ def find_header_row(table):
         if len(col_map) == len(wanted):
             return row_idx, col_map
     raise ValueError(
-        'Không tìm thấy dòng header có đủ 4 cột "Time Stamp"/"Player"/"EN"/"Ảnh" trong bảng docx.'
+        'Không tìm thấy dòng header có đủ 3 cột "Time Stamp"/"Player"/"EN" trong bảng.'
     )
 
 
-def parse_cues(docx_path: Path):
-    doc = Document(str(docx_path))
-    if not doc.tables:
-        raise ValueError(f'File "{docx_path}" không có bảng nào.')
-    table = doc.tables[0]
-
-    header_idx, col_map = find_header_row(table)
+def parse_cues(path: Path):
+    rows = load_rows(path)
+    header_idx, col_map = find_header_row(rows)
 
     cues = []
     rejected_timestamps = []  # để báo lỗi rõ nếu cuối cùng không ra cue nào nhưng có dòng có vẻ là dữ liệu
-    for row in list(table.rows)[header_idx + 1:]:
-        ts_text = row.cells[col_map["timestamp"]].text.strip()
+    max_col = max(col_map.values())
+    for row in rows[header_idx + 1:]:
+        if len(row) <= max_col:
+            continue  # dòng thiếu cột (vd dòng trống cuối file CSV) — bỏ qua, không phải lỗi
+
+        ts_text = row[col_map["timestamp"]]
         m = TIMESTAMP_RE.match(ts_text)
         if not m:
             if ts_text:
@@ -89,15 +126,16 @@ def parse_cues(docx_path: Path):
         if start >= end:
             raise ValueError(f'Cue "{ts_text}": start phải nhỏ hơn end.')
 
-        text = row.cells[col_map["text"]].text.strip()
-        image_raw = row.cells[col_map["image"]].text.strip()
+        text = row[col_map["text"]]
+        player = row[col_map["player"]]
 
         cues.append({
             "index": len(cues),
             "start": round(start, 3),
             "end": round(end, 3),
             "text": text,
-            "image": image_raw or None,
+            "player": player or None,
+            "image": player or None,  # ảnh = tên Player, xem validate_images()/image_label_to_candidates()
         })
 
     if not cues:
@@ -117,8 +155,9 @@ def parse_cues(docx_path: Path):
 
 
 def image_label_to_candidates(label: str):
-    num = re.sub(r"(?i)^ảnh\s*", "", label).strip()
-    base = f"ảnh {num}"
+    # Ảnh = tên Player nguyên văn (vd "FL.ABCD" -> "FL.ABCD.png") — chỉ lọc bớt ký tự Windows cấm
+    # dùng trong tên file, không đổi case/format gì khác để giữ đúng tên tuyển thủ.
+    base = _INVALID_FILENAME_CHARS_RE.sub("_", label).strip()
     return [base + ext for ext in (".png", ".jpg", ".jpeg")]
 
 
@@ -143,10 +182,12 @@ def validate_images(cues, images_dir: Path):
 
     if missing:
         lines = [
-            f'  - docx nhắc tới "{label}" nhưng không thấy file nào trong {candidates}'
+            f'  - Player "{label}" nhưng không thấy file ảnh nào trong {candidates}'
             for label, candidates in missing
         ]
-        raise ValueError(f'Thiếu {len(missing)} ảnh trong "{images_dir}":\n' + "\n".join(lines))
+        raise ValueError(
+            f'Thiếu {len(missing)} ảnh (đặt tên theo Player) trong "{images_dir}":\n' + "\n".join(lines)
+        )
 
     used = {name.lower() for name in resolved.values()}
     unused = [
@@ -154,7 +195,7 @@ def validate_images(cues, images_dir: Path):
         if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg") and f.name.lower() not in used
     ]
     if unused:
-        print(f"⚠️  Cảnh báo: {len(unused)} ảnh trong thư mục không được docx nhắc tới (không chặn): {unused}", file=sys.stderr)
+        print(f"⚠️  Cảnh báo: {len(unused)} ảnh trong thư mục không được nhắc tới (không chặn): {unused}", file=sys.stderr)
 
     return resolved
 
@@ -183,7 +224,7 @@ def write_srt(cues, srt_path: Path):
 
 BANNER = (
     "===============================================\n"
-    "  Mic Check - Chuyen doi file .docx\n"
+    "  Mic Check - Chuyen doi file du lieu\n"
     "===============================================\n"
 )
 
@@ -201,41 +242,41 @@ def _pause_if_interactive():
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
-        "docx_dropped", nargs="?", type=Path,
-        help="(chế độ kéo-thả) đường dẫn file .docx — tự suy ra --images/--out-dir là thư mục chứa nó",
+        "input_dropped", nargs="?", type=Path,
+        help="(chế độ kéo-thả) đường dẫn file .docx/.csv — tự suy ra --images/--out-dir là thư mục chứa nó",
     )
-    ap.add_argument("--docx", type=Path)
+    ap.add_argument("--input", type=Path)
     ap.add_argument("--images", type=Path)
     ap.add_argument("--out-dir", type=Path)
     args = ap.parse_args()
 
     print(BANNER)
 
-    docx_path = args.docx or args.docx_dropped
-    if docx_path is None:
-        print("Cach dung: KEO file .docx tha vao bieu tuong nay (khong phai mo file nay truc tiep).")
+    input_path = args.input or args.input_dropped
+    if input_path is None:
+        print(f'Cach dung: KEO file ({"/".join(SUPPORTED_EXTENSIONS)}) tha vao bieu tuong nay (khong phai mo file nay truc tiep).')
         _pause_if_interactive()
         sys.exit(1)
 
-    if docx_path.suffix.lower() != ".docx":
-        print(f'Loi: file vua tha khong phai .docx ("{docx_path}").')
+    if input_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+        print(f'Loi: file vua tha co dinh dang chua ho tro ("{input_path}"). Chi doc duoc: {", ".join(SUPPORTED_EXTENSIONS)}')
         _pause_if_interactive()
         sys.exit(1)
 
-    if not docx_path.is_file():
-        print(f'Loi: khong tim thay file "{docx_path}".')
+    if not input_path.is_file():
+        print(f'Loi: khong tim thay file "{input_path}".')
         _pause_if_interactive()
         sys.exit(1)
 
-    images_dir = args.images or docx_path.parent
-    out_dir = args.out_dir or docx_path.parent
+    images_dir = args.images or input_path.parent
+    out_dir = args.out_dir or input_path.parent
 
-    print(f"File docx : {docx_path}")
-    print(f"Thu muc   : {images_dir}\n")
+    print(f"File du lieu : {input_path}")
+    print(f"Thu muc      : {images_dir}\n")
 
     try:
-        print(f"Đọc docx: {docx_path}")
-        cues = parse_cues(docx_path)
+        print(f"Đọc: {input_path}")
+        cues = parse_cues(input_path)
         print(f"Parse được {len(cues)} cue.")
 
         print(f"Validate ảnh trong: {images_dir}")
@@ -245,11 +286,11 @@ def main():
                 cue["image"] = resolved_images[cue["image"]]
 
         out_dir.mkdir(parents=True, exist_ok=True)
-        stem = docx_path.stem
+        stem = input_path.stem
 
         json_path = out_dir / f"{stem}.cues.json"
         output = {
-            "sourceDocx": docx_path.name,
+            "sourceFile": input_path.name,
             "cueCount": len(cues),
             "cues": cues,
         }

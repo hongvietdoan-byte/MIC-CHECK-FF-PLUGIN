@@ -1,13 +1,13 @@
 # Mic Check — Premiere Pro Plugin (Standalone)
 
-Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồm video nền + ảnh nhân vật + caption đồng bộ theo thời gian, từ một file docx (bảng Time Stamp/Player/EN/Ảnh) và/hoặc SRT.
+Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồm video nền + ảnh nhân vật + caption đồng bộ theo thời gian, từ một file `.docx` hoặc `.csv` (bảng Time Stamp/Player/EN) và/hoặc SRT.
 
 **Không cần Claude, MCP, Node server hay mạng internet.** Plugin chạy hoàn toàn trong Premiere, chỉ đọc/ghi file cục bộ trên máy bạn.
 
 ## Yêu cầu
 
 - Adobe Premiere Pro **26.2.0 trở lên** (2026 release, tháng 2/2026+). Bản cũ hơn không có API set frame rate cần dùng.
-- **Không cần cài Python** — `scripts/Chuyen_Doi_File_Docx_Mic_Check.exe` đã đóng gói sẵn Python + thư viện, kéo-thả file `.docx` thẳng vào là dùng ngay. (Python 3.9+ chỉ cần nếu bạn muốn tự sửa/build lại từ `docx_to_mic_check.py`.)
+- **Không cần cài Python** — `scripts/Chuyen_Doi_File_Mic_Check.exe` đã đóng gói sẵn Python + thư viện, kéo-thả file `.docx`/`.csv` thẳng vào là dùng ngay. (Python 3.9+ chỉ cần nếu bạn muốn tự sửa/build lại từ `docx_to_mic_check.py`.)
 - Tuỳ cách cài (xem 2 lựa chọn bên dưới): **Adobe Creative Cloud Desktop** (cách A, khuyên dùng khi chia sẻ ra ngoài) hoặc [UXP Developer Tool](https://developer.adobe.com/photoshop/uxp/2022/guides/devtool/) (cách B, dùng khi tự dev/sửa code).
 
 ## Cài đặt plugin
@@ -39,28 +39,30 @@ Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồ
 ### Bước 1 — Chuẩn bị dữ liệu
 
 Bạn cần một thư mục chứa:
-- File `.docx` gốc (bảng Time Stamp / Player / EN / Ảnh) **hoặc** đã có sẵn file `<tên>.cues.json`
-- Các file ảnh nhân vật được tham chiếu trong docx
+- File `.docx` hoặc `.csv` gốc (bảng **Time Stamp / Player / EN**, đúng 3 cột này, không cần thêm cột Ảnh) **hoặc** đã có sẵn file `<tên>.cues.json`
+- Các file ảnh nhân vật, **đặt tên trùng với giá trị cột Player** (vd Player ghi `FL.ABCD` thì cần file `FL.ABCD.png`/`.jpg`/`.jpeg`)
 - (Tuỳ chọn) 1 file video nền (`.mp4`/`.mov`/`.mxf`/`.avi`)
 - (Tuỳ chọn) file `.srt` nếu muốn caption
 
-Chưa có sẵn file `.docx`? Mở [`File_Mau_Docx_Mic_Check.docx`](File_Mau_Docx_Mic_Check.docx) — file mẫu đúng format, xoá dòng ví dụ và điền dữ liệu thật vào là dùng được ngay.
+Chưa có sẵn file? Mở [`File_Mau_Docx_Mic_Check.docx`](File_Mau_Docx_Mic_Check.docx) — file mẫu đúng format, xoá dòng ví dụ và điền dữ liệu thật vào là dùng được ngay.
 
-Nếu chỉ có `.docx`, chuyển đổi sang `cues.json` + `.srt` bằng một trong hai cách:
+Nếu chỉ có `.docx`/`.csv`, chuyển đổi sang `cues.json` + `.srt` bằng một trong hai cách:
 
 **Cách nhanh (khuyên dùng — không cần cài gì cả):**
-Kéo thả file `.docx` thẳng vào biểu tượng `scripts/Chuyen_Doi_File_Docx_Mic_Check.exe`. Kết quả (`<tên>.cues.json`, `<tên>.srt`) sẽ được tạo ngay trong thư mục chứa file docx. File `.exe` này đã đóng gói sẵn Python + thư viện — không cần cài gì thêm.
+Kéo thả file `.docx` hoặc `.csv` thẳng vào biểu tượng `scripts/Chuyen_Doi_File_Mic_Check.exe`. Kết quả (`<tên>.cues.json`, `<tên>.srt`) sẽ được tạo ngay trong thư mục chứa file nguồn. File `.exe` này đã đóng gói sẵn Python + thư viện — không cần cài gì thêm.
 
 **Cách dùng file .exe qua dòng lệnh (tuỳ chỉnh thư mục ảnh/xuất riêng):**
 ```bash
-scripts/Chuyen_Doi_File_Docx_Mic_Check.exe --docx "duong/dan/file.docx" --images "thu muc anh" --out-dir "thu muc xuat"
+scripts/Chuyen_Doi_File_Mic_Check.exe --input "duong/dan/file.docx" --images "thu muc anh" --out-dir "thu muc xuat"
 ```
 
 **Cách chạy từ source .py (chỉ cần khi tự sửa code):**
 ```bash
 pip install -r scripts/requirements.txt
-python scripts/docx_to_mic_check.py --docx "duong/dan/file.docx" --images "thu muc anh" --out-dir "thu muc xuat"
+python scripts/docx_to_mic_check.py --input "duong/dan/file.docx" --images "thu muc anh" --out-dir "thu muc xuat"
 ```
+
+**Về file `.csv`**: nếu xuất từ Google Sheets/Excel, cột Time Stamp có dấu phẩy trong nội dung (`00:00:01,200 --> ...`) — công cụ export chuẩn sẽ tự bọc dấu ngoặc kép quanh cell đó, không cần chỉnh tay gì thêm. Encoding đọc là UTF-8 (tự bỏ BOM nếu có).
 
 ### Bước 2 — Chạy Mic Check trong Premiere
 
@@ -98,8 +100,8 @@ mic-check-plugin/
 │   ├── actions.js         — toàn bộ logic tương tác Premiere (UXP API)
 │   └── icons/icon.png
 ├── scripts/
-│   ├── Chuyen_Doi_File_Docx_Mic_Check.exe — bản đóng gói sẵn (không cần cài Python) — kéo file .docx vào đây
-│   ├── docx_to_mic_check.py     — source Python, chỉ cần khi tự sửa/build lại .exe
+│   ├── Chuyen_Doi_File_Mic_Check.exe — bản đóng gói sẵn (không cần cài Python) — kéo file .docx/.csv vào đây
+│   ├── docx_to_mic_check.py     — source Python (đọc cả .docx lẫn .csv), chỉ cần khi tự sửa/build lại .exe
 │   └── requirements.txt         — dependency để chạy/build từ source .py
 └── README.md
 ```
@@ -108,11 +110,11 @@ mic-check-plugin/
 ```bash
 pip install -r scripts/requirements.txt pyinstaller
 cd scripts
-pyinstaller --onefile --name Chuyen_Doi_File_Docx_Mic_Check --distpath . --workpath build --specpath build docx_to_mic_check.py
+pyinstaller --onefile --name Chuyen_Doi_File_Mic_Check --distpath . --workpath build --specpath build docx_to_mic_check.py
 ```
 File `.exe` mới sẽ ghi đè lên bản cũ trong `scripts/`.
 
-**Gói riêng để chia sẻ ra ngoài** (chỉ 4 file, không thư mục con — tránh người mới nhầm lẫn giữa nhiều file): xem thư mục `Mic Check Plugin - Share/` ở gốc repo, gồm `MicCheck.ccx` + `File_Mau_Docx_Mic_Check.docx` + `Chuyen_Doi_File_Docx_Mic_Check.exe` + `HUONG_DAN_SU_DUNG.txt`.
+**Gói riêng để chia sẻ ra ngoài** (chỉ 4 file, không thư mục con — tránh người mới nhầm lẫn giữa nhiều file): xem thư mục `Mic Check Plugin - Share/` ở gốc repo, gồm `MicCheck.ccx` + `File_Mau_Docx_Mic_Check.docx` + `Chuyen_Doi_File_Mic_Check.exe` + `HUONG_DAN_SU_DUNG.txt`.
 
 ## Ghi chú / giới hạn đã biết
 
