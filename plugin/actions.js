@@ -728,3 +728,120 @@ async function verifyMicCheckWorkflow({ cuesJsonPath, imageVideoTrackIndex = 0, 
       : "Chỉ verify được SỐ LƯỢNG caption item, không verify được nội dung text (giới hạn UXP API)."
   };
 }
+
+// ----------------------------------------------------------------------------
+// "Chỉnh vị trí ảnh" — set Position/Scale hàng loạt cho mọi clip trên 1 track, áp dụng SAU khi đã
+// chạy Mic Check (không phải lúc chạy). Công thức đã live-test xác nhận trên Premiere 2026
+// (2026-09-11), xem TODO.md repo gốc mục liên quan:
+//   - Effect dùng: "AE.ADBE Motion" — component có sẵn trên MỌI clip, không cần tự thêm effect nào.
+//   - TUYỆT ĐỐI không dùng param.createSetValueAction() — luôn ném "Illegal Parameter type" với mọi
+//     param đã thử (kể cả Opacity đơn giản). Cách ĐÚNG: param.createKeyframe(value) rồi gán
+//     kf.position = <thời điểm> rồi param.createAddKeyframeAction(kf) trong executeTransaction —
+//     dù chỉ set 1 giá trị "tĩnh" (không animate) cũng phải đi qua đường keyframe này.
+//   - Position: giá trị CHUẨN HOÁ 0-1 (0.5,0.5 = giữa khung hình), tạo bằng `new ppro.PointF(x, y)`
+//     (constructor nhận thẳng x,y) — gán qua p.x=...; p.y=...; SAU KHI new PointF() rỗng KHÔNG có
+//     tác dụng, ra giá trị rác 32767 (INT16_MAX) dù đọc lại p.x/p.y trong JS vẫn thấy đúng số (bug/
+//     giới hạn thật của UXP, không phải lỗi code — đã live-test xác nhận nhiều lần).
+//   - Scale: số phần trăm bình thường (50 = 50%), không chuẩn hoá, cùng cơ chế createKeyframe.
+// ----------------------------------------------------------------------------
+
+async function findComponentInItemChain(item, matchName) {
+  const chain = await item.getComponentChain();
+  const count = await chain.getComponentCount();
+  for (let i = 0; i < count; i++) {
+    const comp = await chain.getComponentAtIndex(i);
+    let mn = null;
+    try { mn = await comp.getMatchName(); } catch {}
+    if (mn === matchName) return comp;
+  }
+  return null;
+}
+
+async function findParamByName(component, displayNameWanted) {
+  const count = await component.getParamCount();
+  for (let i = 0; i < count; i++) {
+    const param = await component.getParam(i);
+    if (param.displayName === displayNameWanted) return param;
+  }
+  return null;
+}
+
+// Set 1 keyframe "tĩnh" (chỉ 1 điểm, không animate) tại đúng điểm bắt đầu clip — xem ghi chú công
+// thức ở trên, đây là cách DUY NHẤT đã xác nhận ghi được giá trị (createSetValueAction luôn lỗi).
+async function setStaticKeyframe(param, value, atTick) {
+  const kf = param.createKeyframe(value);
+  kf.position = atTick;
+  return param.createAddKeyframeAction(kf);
+}
+
+async function applyImageLayout({ xPercent, yPercent, scalePercent, videoTrackIndex }, log) {
+  if (xPercent == null || yPercent == null || scalePercent == null) {
+    throw new Error("Phải truyền xPercent, yPercent, scalePercent.");
+  }
+  if (videoTrackIndex == null) throw new Error("Phải truyền videoTrackIndex (track ảnh cần chỉnh).");
+
+  const project = await ppro.Project.getActiveProject();
+  if (!project) throw new Error("Không tìm thấy project đang mở.");
+  const sequence = await project.getActiveSequence();
+  if (!sequence) throw new Error("Không có sequence active.");
+
+  const track = await sequence.getVideoTrack(videoTrackIndex).catch(() => null);
+  if (!track) throw new Error(`Không tìm thấy video track index ${videoTrackIndex} (V${videoTrackIndex + 1}).`);
+
+  const items = await track.getTrackItems(ppro.Constants.TrackItemType.CLIP, false);
+  if (!items || items.length === 0) {
+    throw new Error(`Track V${videoTrackIndex + 1} không có clip nào để áp dụng.`);
+  }
+
+  const xFrac = xPercent / 100;
+  const yFrac = yPercent / 100;
+  if (log) log(`Áp Position (${xPercent}%, ${yPercent}%) + Scale ${scalePercent}% cho ${items.length} clip trên V${videoTrackIndex + 1}...`);
+
+  const results = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    try {
+      const comp = await findComponentInItemChain(item, "AE.ADBE Motion");
+      if (!comp) throw new Error('Clip không có effect "Motion" (bất thường, mọi clip video đều có sẵn).');
+
+      const posParam = await findParamByName(comp, "Position");
+      const scaleParam = await findParamByName(comp, "Scale");
+      if (!posParam) throw new Error('Không tìm thấy param "Position" trong Motion.');
+      if (!scaleParam) throw new Error('Không tìm thấy param "Scale" trong Motion.');
+
+      const inPoint = await item.getInPoint();
+      const posValue = new ppro.PointF(xFrac, yFrac);
+
+      // createKeyframe()/kf.position phải gọi TRƯỚC, ngoài executeTransaction — chỉ có
+      // createAddKeyframeAction(kf) mới là Action thật để add vào compoundAction.
+      const posKf = posParam.createKeyframe(posValue);
+      posKf.position = inPoint;
+      const scaleKf = scaleParam.createKeyframe(scalePercent);
+      scaleKf.position = inPoint;
+
+      let ok;
+      await project.lockedAccess(() => {
+        ok = project.executeTransaction((compoundAction) => {
+          compoundAction.addAction(posParam.createAddKeyframeAction(posKf));
+          compoundAction.addAction(scaleParam.createAddKeyframeAction(scaleKf));
+        }, `Chỉnh vị trí ảnh clip ${i + 1}/${items.length}`);
+      });
+      if (!ok) throw new Error("executeTransaction trả về false.");
+
+      results.push({ index: i, ok: true });
+      if (log) log(`Clip ${i + 1}/${items.length}: OK`);
+    } catch (e) {
+      results.push({ index: i, ok: false, error: String(e && e.message || e) });
+      if (log) log(`Clip ${i + 1}/${items.length} LỖI: ${e.message}`, "warn");
+    }
+    if (i < items.length - 1) await sleep(BATCH_PLACEMENT_DELAY_MS);
+  }
+
+  const failed = results.filter((r) => !r.ok);
+  return {
+    total: items.length,
+    applied: results.length - failed.length,
+    failed,
+    xPercent, yPercent, scalePercent, videoTrackIndex
+  };
+}

@@ -16,9 +16,12 @@
   .row label { width: 44px; flex-shrink: 0; color: #999; font-size: 10px; white-space: nowrap; cursor: default; }
   .row .val { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ccc; font-size: 10px; }
 
-  .row input[type=text], .row select {
+  .row input[type=text], .row input[type=number], .row select {
     background: #2a2a2d; color: #e4e4e8; border: 1px solid #555; border-radius: 3px;
     padding: 2px 6px; font-size: 10px; height: 22px; flex: 1; }
+  .row input[type=number].small { flex: 0 0 42px; max-width: 42px; padding: 2px 4px; }
+
+  .section-sep { margin-top: 6px; border-top: 1px solid #333; padding-top: 6px; }
 
   .row select {
     appearance: none; -webkit-appearance: none;
@@ -84,6 +87,28 @@
   <div class="actions">
     <button id="mcRunBtn" class="primary" disabled>▶ Chạy Mic Check</button>
     <button id="mcVerifyBtn" disabled>✓ Verify</button>
+  </div>
+
+  <div class="row section-sep">
+    <label title="Track V chứa ảnh cần chỉnh (V1=0, V2=1...)">Track</label>
+    <input type="number" id="mcLayoutTrack" class="small" value="1" min="0" step="1">
+    <select id="mcLayoutPreset">
+      <option value="custom">Tuỳ chỉnh</option>
+      <option value="bl">Góc dưới-trái</option>
+      <option value="br">Góc dưới-phải</option>
+      <option value="tl">Góc trên-trái</option>
+      <option value="tr">Góc trên-phải</option>
+      <option value="bc">Giữa-dưới</option>
+    </select>
+  </div>
+  <div class="row">
+    <label title="Vị trí X% / Y% (0-100, tính từ góc trên-trái) và Scale%">X/Y/Scale</label>
+    <input type="number" id="mcLayoutX" class="small" value="15" step="1">
+    <input type="number" id="mcLayoutY" class="small" value="85" step="1">
+    <input type="number" id="mcLayoutScale" class="small" value="30" step="1">
+  </div>
+  <div class="actions">
+    <button id="mcLayoutBtn">Áp vị trí cho ảnh trên track</button>
   </div>
 
   <div id="log"></div>

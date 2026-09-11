@@ -201,6 +201,7 @@
         }, (msg) => logLine("  " + msg));
 
         logLine(`  ✅ "${result.sequenceName}" (${result.actualFps}fps) — ảnh: ${result.images.placed}/${result.totalCues}.`);
+        $("mcLayoutTrack").value = result.imageVideoTrackIndex; // tự điền đúng track ảnh cho mục "Chỉnh vị trí ảnh" bên dưới
         if (result.images.missingPlayers && result.images.missingPlayers.length > 0) {
           logLine(`  ⚠️ Không tìm thấy ảnh cho: ${result.images.missingPlayers.join(", ")}`);
         }
@@ -262,6 +263,56 @@
       logLine(`❌ Lỗi verify: ${e.message}`);
     } finally {
       updateButtonsEnabled();
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // Chỉnh vị trí ảnh — áp Position/Scale hàng loạt cho mọi clip trên 1 track, dùng SAU khi đã có
+  // sequence với ảnh (chạy Mic Check trước, hoặc set tay số track). Preset chỉ là điểm khởi đầu gợi
+  // ý (margin an toàn ~15%) — Scale thật phụ thuộc kích thước ảnh gốc (Premiere không cho đọc qua
+  // script), nên vẫn cần tự canh mắt qua Program Monitor rồi chỉnh lại "Tuỳ chỉnh" nếu chưa vừa.
+  // --------------------------------------------------------------------------
+  const LAYOUT_PRESETS = {
+    bl: { x: 15, y: 85 },
+    br: { x: 85, y: 85 },
+    tl: { x: 15, y: 15 },
+    tr: { x: 85, y: 15 },
+    bc: { x: 50, y: 85 }
+  };
+
+  $("mcLayoutPreset").addEventListener("change", () => {
+    const preset = LAYOUT_PRESETS[$("mcLayoutPreset").value];
+    if (!preset) return; // "custom" — giữ nguyên số user đang gõ
+    $("mcLayoutX").value = preset.x;
+    $("mcLayoutY").value = preset.y;
+  });
+
+  $("mcLayoutBtn").addEventListener("click", async () => {
+    $("mcLayoutBtn").disabled = true;
+    const videoTrackIndex = parseInt($("mcLayoutTrack").value, 10);
+    const xPercent = parseFloat($("mcLayoutX").value);
+    const yPercent = parseFloat($("mcLayoutY").value);
+    const scalePercent = parseFloat($("mcLayoutScale").value);
+
+    if (Number.isNaN(videoTrackIndex) || Number.isNaN(xPercent) || Number.isNaN(yPercent) || Number.isNaN(scalePercent)) {
+      logLine("❌ Track/X/Y/Scale phải là số hợp lệ.");
+      $("mcLayoutBtn").disabled = false;
+      return;
+    }
+
+    logLine(`▶ Áp vị trí ảnh: track V${videoTrackIndex + 1}, X=${xPercent}%, Y=${yPercent}%, Scale=${scalePercent}%...`);
+    try {
+      const result = await applyImageLayout({ xPercent, yPercent, scalePercent, videoTrackIndex }, (msg) => logLine("  " + msg));
+      logLine(`✅ Đã áp cho ${result.applied}/${result.total} clip trên V${videoTrackIndex + 1}.`);
+      if (result.failed.length > 0) {
+        logLine(`⚠️ ${result.failed.length} clip lỗi:`);
+        for (const f of result.failed.slice(0, 5)) logLine(`   - index ${f.index}: ${f.error}`);
+      }
+      logLine("Kiểm tra lại Program Monitor bằng mắt — Scale/vị trí chính xác còn phụ thuộc kích thước ảnh gốc.");
+    } catch (e) {
+      logLine(`❌ Lỗi: ${e.message}`);
+    } finally {
+      $("mcLayoutBtn").disabled = false;
     }
   });
 

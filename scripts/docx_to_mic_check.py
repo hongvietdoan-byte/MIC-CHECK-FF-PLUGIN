@@ -266,7 +266,7 @@ def write_srt_for_column(cues, label: str, srt_path: Path) -> int:
 
 # Dùng CHUNG 1 số version với plugin (mic-check-plugin/plugin/manifest.json) cho cả gói Mic Check —
 # bump cả 2 cùng lúc mỗi khi có thay đổi người dùng cuối nhìn thấy, để chỉ cần nhớ đúng 1 con số.
-MIC_CHECK_VERSION = "1.2.0"
+MIC_CHECK_VERSION = "1.3.0"
 
 BANNER = (
     "===============================================\n"
