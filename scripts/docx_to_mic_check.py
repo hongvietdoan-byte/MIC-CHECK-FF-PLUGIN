@@ -119,77 +119,117 @@ def load_rows(path: Path):
     )
 
 
-def find_header_row(rows):
-    """Tìm dòng header theo NỘI DUNG cell (không hardcode chỉ số dòng), rồi trả về:
-    - row_idx: chỉ số dòng header
-    - col_map: {"timestamp": idx, "player": idx} — 2 cột BẮT BUỘC
-    - text_columns: {label: idx} — các cột phụ đề thật sự, theo đúng tên cột (vd "EN", "ID", "VN",
-      "TH"...) — mỗi cột này sẽ sinh ra 1 file .srt riêng. Không hardcode số lượng hay tên cột.
+def find_all_table_blocks(rows):
+    """Tìm dòng header theo NỘI DUNG cell (không hardcode chỉ số dòng) — hỗ trợ NHIỀU bảng xếp CẠNH
+    NHAU (theo cột) trong cùng 1 dòng header, ngăn cách bởi ít nhất 1 cột trống (vd sheet ghép nhiều
+    trận/nhiều đội, mỗi bảng riêng 1 nhóm "Time Stamp | Player | ..."). Chỉ dò 1 dòng header cho toàn
+    sheet (không hỗ trợ nhiều nhóm bảng xếp CHỒNG dọc).
 
-    Nếu ngay dưới dòng header có 1 "dòng đánh dấu kiểu cột" (mỗi ô ngoài Time Stamp/Player đều là
-    rỗng hoặc chữ "Text", và ô Time Stamp không phải định dạng giờ thật) thì CHỈ những cột được đánh
-    dấu "Text" mới được coi là cột phụ đề — cách này lọc bỏ được cột thừa không phải phụ đề (vd cột
-    "Ảnh" còn sót lại từ mẫu bảng cũ trước khi đổi sang lấy ảnh theo Player). Nếu không có dòng đánh
-    dấu này thì fallback: MỌI cột khác ngoài Time Stamp/Player đều được coi là cột phụ đề.
+    Trả về list block, mỗi block là dict:
+    - header_row_idx: chỉ số dòng header
+    - col_map: {"timestamp": idx, "player": idx} — 2 cột BẮT BUỘC của block này
+    - text_columns: {label: idx} — cột phụ đề thật sự của block này (vd "EN", "ID", "VN"...)
+    - col_start/col_end: biên cột của block (dùng để đọc "mã" ở dòng ngay trên header)
 
-    Bền hơn nếu cấu trúc bảng có thêm/bớt dòng trang trí phía trên."""
-    required = {"time stamp": "timestamp", "player": "player"}
+    Mỗi "Time Stamp" tìm thấy trong dòng header mở ra 1 block mới, kéo dài tới ngay trước "Time
+    Stamp" kế tiếp (hoặc hết dòng nếu là block cuối) — nhờ vậy không cần biết trước có bao nhiêu bảng.
+
+    Áp dụng lại đúng logic "dòng đánh dấu kiểu cột Text" (lọc cột thừa không phải phụ đề) như bản cũ,
+    nhưng CHỈ xét trong phạm vi cột của từng block, không ảnh hưởng block khác."""
     for row_idx, row in enumerate(rows):
         cells_lower = [c.lower() for c in row]
-        col_map = {}
-        for idx, cell_text in enumerate(cells_lower):
-            for key, field in required.items():
-                if cell_text == key:
-                    col_map[field] = idx
-        if len(col_map) != len(required):
+        ts_indices = [idx for idx, cell_text in enumerate(cells_lower) if cell_text == "time stamp"]
+        if not ts_indices:
             continue
 
-        used_idx = set(col_map.values())
-        candidate_columns = {}
-        for idx, cell_text in enumerate(row):
-            if idx in used_idx:
-                continue
-            label = cell_text.strip()
-            if label:
-                candidate_columns[label] = idx
+        blocks = []
+        for b, ts_idx in enumerate(ts_indices):
+            col_start = ts_idx
+            col_end = ts_indices[b + 1] - 1 if b + 1 < len(ts_indices) else len(row) - 1
 
-        if not candidate_columns:
-            raise ValueError(
-                'Bảng có đủ cột "Time Stamp"/"Player" nhưng không thấy cột phụ đề nào khác '
-                '(vd "EN") — cần ít nhất 1 cột phụ đề ngoài 2 cột đó.'
-            )
-
-        text_columns = candidate_columns
-        marker_row = rows[row_idx + 1] if row_idx + 1 < len(rows) else None
-        if marker_row is not None:
-            marker_ts = marker_row[col_map["timestamp"]] if len(marker_row) > col_map["timestamp"] else ""
-            looks_like_marker = not TIMESTAMP_RE.match(marker_ts)
-            marked_columns = {}
-            for label, idx in candidate_columns.items():
-                cell = marker_row[idx].strip().lower() if len(marker_row) > idx else ""
-                if cell not in ("", "text"):
-                    looks_like_marker = False
+            player_idx = None
+            for idx in range(col_start, col_end + 1):
+                if idx < len(cells_lower) and cells_lower[idx] == "player":
+                    player_idx = idx
                     break
-                if cell == "text":
-                    marked_columns[label] = idx
-            if looks_like_marker and marked_columns:
-                text_columns = marked_columns
+            if player_idx is None:
+                raise ValueError(
+                    f'Tìm thấy cột "Time Stamp" (cột {ts_idx + 1}) nhưng không thấy cột "Player" '
+                    "đi kèm trong cùng nhóm bảng — kiểm tra lại tên cột."
+                )
 
-        return row_idx, col_map, text_columns
+            col_map = {"timestamp": ts_idx, "player": player_idx}
+            used_idx = {ts_idx, player_idx}
+            candidate_columns = {}
+            for idx in range(col_start, col_end + 1):
+                if idx in used_idx or idx >= len(row):
+                    continue
+                label = row[idx].strip()
+                if label:
+                    candidate_columns[label] = idx
+
+            if not candidate_columns:
+                raise ValueError(
+                    f'Bảng ở cột {ts_idx + 1} có đủ "Time Stamp"/"Player" nhưng không thấy cột phụ đề '
+                    'nào khác (vd "EN") — cần ít nhất 1 cột phụ đề ngoài 2 cột đó.'
+                )
+
+            text_columns = candidate_columns
+            marker_row = rows[row_idx + 1] if row_idx + 1 < len(rows) else None
+            if marker_row is not None:
+                marker_ts = marker_row[ts_idx] if len(marker_row) > ts_idx else ""
+                looks_like_marker = not TIMESTAMP_RE.match(marker_ts)
+                marked_columns = {}
+                for label, idx in candidate_columns.items():
+                    cell = marker_row[idx].strip().lower() if len(marker_row) > idx else ""
+                    if cell not in ("", "text"):
+                        looks_like_marker = False
+                        break
+                    if cell == "text":
+                        marked_columns[label] = idx
+                if looks_like_marker and marked_columns:
+                    text_columns = marked_columns
+
+            blocks.append({
+                "header_row_idx": row_idx,
+                "col_map": col_map,
+                "text_columns": text_columns,
+                "col_start": col_start,
+                "col_end": col_end,
+            })
+        return blocks
 
     raise ValueError('Không tìm thấy dòng header có đủ 2 cột "Time Stamp"/"Player" trong bảng.')
 
 
-def parse_cues(path: Path):
-    rows = load_rows(path)
-    header_idx, col_map, text_columns = find_header_row(rows)
-    # Giữ đúng thứ tự cột trái->phải như trong bảng gốc, để thứ tự file .srt xuất ra dễ đoán.
+def block_table_name(rows, block):
+    """Lấy "mã"/tên bảng từ Ô ĐẦU TIÊN không rỗng ở dòng NGAY TRÊN dòng header, trong đúng phạm vi
+    cột của block đó. Trả về None nếu không có dòng trên (header ở dòng đầu file) hoặc dòng đó rỗng
+    trong phạm vi cột — dùng để phân biệt file chỉ có 1 bảng (không cần dòng tên) với file nhiều bảng
+    (BẮT BUỘC có dòng tên để đặt tên file xuất ra)."""
+    header_row_idx = block["header_row_idx"]
+    if header_row_idx == 0:
+        return None
+    name_row = rows[header_row_idx - 1]
+    for idx in range(block["col_start"], block["col_end"] + 1):
+        if idx < len(name_row) and name_row[idx].strip():
+            return name_row[idx].strip()
+    return None
+
+
+def extract_cues_for_block(rows, block, table_label=None):
+    """Đọc cue cho ĐÚNG 1 block (1 bảng) — dùng col_map/text_columns riêng của block đó, quét TOÀN
+    BỘ các dòng sau header (không giới hạn theo block khác) vì mỗi block có cột riêng, các dòng dữ
+    liệu của block khác hay dòng nội dung không liên quan (vd phụ lục cuối sheet) sẽ tự bị bỏ qua do
+    cột Time Stamp của block này rỗng/không khớp định dạng — không cần lọc gì thêm."""
+    col_map = block["col_map"]
+    text_columns = block["text_columns"]
     text_labels = sorted(text_columns.keys(), key=lambda label: text_columns[label])
 
     cues = []
     rejected_timestamps = []  # để báo lỗi rõ nếu cuối cùng không ra cue nào nhưng có dòng có vẻ là dữ liệu
     max_col = max(list(col_map.values()) + list(text_columns.values()))
-    for row in rows[header_idx + 1:]:
+    for row in rows[block["header_row_idx"] + 1:]:
         if len(row) <= max_col:
             continue  # dòng thiếu cột (vd dòng trống cuối file CSV/xlsx) — bỏ qua, không phải lỗi
 
@@ -197,9 +237,9 @@ def parse_cues(path: Path):
         m = TIMESTAMP_RE.match(ts_text)
         if not m:
             if ts_text:
-                # dòng có nội dung nhưng không khớp định dạng — có thể là dòng trang trí (vd dòng
-                # đánh dấu kiểu cột "Text"/"Text"), nhưng cũng có thể là timestamp gõ sai định dạng,
-                # nên lưu lại vài ví dụ đầu tiên để báo lỗi rõ hơn nếu cuối cùng parse ra 0 cue.
+                # dòng có nội dung nhưng không khớp định dạng — có thể là dòng trang trí, dữ liệu của
+                # 1 block KHÁC (cột này rỗng với block khác đó), hoặc timestamp gõ sai định dạng, nên
+                # lưu lại vài ví dụ đầu tiên để báo lỗi rõ hơn nếu cuối cùng parse ra 0 cue.
                 if len(rejected_timestamps) < 5:
                     rejected_timestamps.append(ts_text)
             continue  # dòng trang trí/rỗng — bỏ qua, không phải lỗi (trừ khi không ra cue nào ở cuối)
@@ -222,19 +262,51 @@ def parse_cues(path: Path):
         })
 
     if not cues:
+        prefix = f'Bảng "{table_label}": ' if table_label else ""
         if rejected_timestamps:
             examples = "\n".join(f'  - "{t}"' for t in rejected_timestamps)
             raise ValueError(
-                "Parse xong nhưng không ra cue nào. Cột \"Time Stamp\" có nội dung nhưng KHÔNG đúng "
-                'định dạng bắt buộc "GIO:PHUT:GIAY,MILIGIAY --> GIO:PHUT:GIAY,MILIGIAY" '
+                f"{prefix}Parse xong nhưng không ra cue nào. Cột \"Time Stamp\" có nội dung nhưng "
+                'KHÔNG đúng định dạng bắt buộc "GIO:PHUT:GIAY,MILIGIAY --> GIO:PHUT:GIAY,MILIGIAY" '
                 '(vd: 00:00:01,200 --> 00:00:02,500).\n'
                 f"Vài giá trị tìm thấy trong cột Time Stamp (không khớp định dạng):\n{examples}"
             )
         raise ValueError(
-            "Parse xong nhưng không ra cue nào — cột \"Time Stamp\" trống ở mọi dòng dữ liệu, "
-            "kiểm tra lại nội dung bảng."
+            f"{prefix}Parse xong nhưng không ra cue nào — cột \"Time Stamp\" trống ở mọi dòng dữ "
+            "liệu, kiểm tra lại nội dung bảng."
         )
     return cues, text_labels
+
+
+def parse_tables(path: Path):
+    """Đọc TOÀN BỘ bảng cue trong file — trả về list, mỗi phần tử là 1 bảng:
+    {"name": <mã bảng, hoặc None nếu file chỉ có 1 bảng và không có dòng tên>, "cues": [...],
+    "text_labels": [...]}.
+
+    File chỉ có 1 bảng (trường hợp phổ biến nhất, mẫu chuẩn) → "name" = None, giữ nguyên hành vi cũ
+    (xuất file theo tên file gốc, không đòi hỏi dòng tên phía trên header).
+
+    File có NHIỀU bảng cạnh nhau (mỗi bảng ngăn cách bằng cột trống) → BẮT BUỘC mỗi bảng phải có 1
+    dòng "mã"/tên ngay trên header của nó (ô đầu tiên không rỗng trong phạm vi cột bảng đó) — dùng để
+    đặt tên file .cues.json/.srt xuất ra, khớp thẳng với cơ chế "Mã" đã có trong plugin Premiere."""
+    rows = load_rows(path)
+    blocks = find_all_table_blocks(rows)
+
+    tables = []
+    for i, block in enumerate(blocks):
+        name = block_table_name(rows, block) if len(blocks) > 1 else None
+        if len(blocks) > 1 and not name:
+            raise ValueError(
+                f"Sheet có {len(blocks)} bảng cạnh nhau (cột {block['col_start'] + 1}-"
+                f"{block['col_end'] + 1} là bảng thứ {i + 1}) nhưng KHÔNG tìm thấy dòng \"mã\"/tên "
+                "bảng ngay phía trên dòng header của nó. Mỗi bảng cần 1 dòng tên riêng (vd "
+                '"VN-FL-D3-G2 Week 2") ở đúng ô đầu cột của bảng đó, ngay trên dòng "Time Stamp | '
+                'Player | ...".'
+            )
+        cues, text_labels = extract_cues_for_block(rows, block, table_label=name)
+        tables.append({"name": name, "cues": cues, "text_labels": text_labels})
+
+    return tables
 
 
 def format_srt_timestamp(seconds: float) -> str:
@@ -266,7 +338,7 @@ def write_srt_for_column(cues, label: str, srt_path: Path) -> int:
 
 # Dùng CHUNG 1 số version với plugin (mic-check-plugin/plugin/manifest.json) cho cả gói Mic Check —
 # bump cả 2 cùng lúc mỗi khi có thay đổi người dùng cuối nhìn thấy, để chỉ cần nhớ đúng 1 con số.
-MIC_CHECK_VERSION = "1.3.0"
+MIC_CHECK_VERSION = "1.5.0"
 
 BANNER = (
     "===============================================\n"
@@ -320,27 +392,36 @@ def main():
 
     try:
         print(f"Đọc: {input_path}")
-        cues, text_labels = parse_cues(input_path)
-        print(f"Parse được {len(cues)} cue, {len(text_labels)} cột phụ đề: {', '.join(text_labels)}")
+        tables = parse_tables(input_path)
+        if len(tables) > 1:
+            print(f"Phát hiện {len(tables)} bảng cạnh nhau trong file, mỗi bảng xuất riêng 1 bộ file:")
 
         out_dir.mkdir(parents=True, exist_ok=True)
         stem = input_path.stem
 
-        json_path = out_dir / f"{stem}.cues.json"
-        output = {
-            "sourceFile": input_path.name,
-            "cueCount": len(cues),
-            "subtitleColumns": text_labels,
-            "cues": cues,
-        }
-        json_path.write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n")
-        print(f"✅ Đã ghi {json_path}")
+        for table in tables:
+            cues = table["cues"]
+            text_labels = table["text_labels"]
+            base = sanitize_filename_component(table["name"]) if table["name"] else stem
+            label_note = f' — mã "{table["name"]}"' if table["name"] else ""
+            print(f"\nBảng{label_note}: {len(cues)} cue, {len(text_labels)} cột phụ đề: {', '.join(text_labels)}")
 
-        for label in text_labels:
-            suffix = sanitize_filename_component(label)
-            srt_path = out_dir / f"{stem}_{suffix}.srt"
-            count = write_srt_for_column(cues, label, srt_path)
-            print(f"✅ Đã ghi {srt_path} ({count} dòng phụ đề)")
+            json_path = out_dir / f"{base}.cues.json"
+            output = {
+                "sourceFile": input_path.name,
+                "sourceTable": table["name"],
+                "cueCount": len(cues),
+                "subtitleColumns": text_labels,
+                "cues": cues,
+            }
+            json_path.write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n")
+            print(f"✅ Đã ghi {json_path}")
+
+            for label in text_labels:
+                suffix = sanitize_filename_component(label)
+                srt_path = out_dir / f"{base}_{suffix}.srt"
+                count = write_srt_for_column(cues, label, srt_path)
+                print(f"✅ Đã ghi {srt_path} ({count} dòng phụ đề)")
 
         print(f'\n✅ Xong! Mo panel "Mic Check" trong Premiere, bam "Chon" chon dung thu muc du lieu:\n   {out_dir}')
     except Exception as e:

@@ -17,14 +17,14 @@ Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồ
 Đơn giản nhất cho người nhận không rành kỹ thuật — không cần cài UXP Developer Tool, không cần ký số.
 
 1. Người nhận cần có **Adobe Creative Cloud Desktop** đã cài và đăng nhập sẵn (thường có sẵn nếu đã dùng Premiere).
-2. Double-click file `.ccx` ở gốc thư mục `mic-check-plugin/` (tên có kèm số phiên bản, hiện tại là [`MicCheck_v1.4.0.ccx`](MicCheck_v1.4.0.ccx)) → Creative Cloud Desktop tự nhận diện và cài vào Premiere Pro.
+2. Double-click file `.ccx` ở gốc thư mục `mic-check-plugin/` (tên có kèm số phiên bản, hiện tại là [`MicCheck_v1.5.0.ccx`](MicCheck_v1.5.0.ccx)) → Creative Cloud Desktop tự nhận diện và cài vào Premiere Pro.
 3. Mở Premiere Pro (hoặc khởi động lại nếu đang mở) → panel "Mic Check" xuất hiện ở **Window → Extensions → Mic Check**.
 
 **Cách tự đóng gói file `.ccx` (cho người build/chia sẻ):**
 1. Mở **UXP Developer Tool** → **Add Plugin** → chọn `mic-check-plugin/plugin/manifest.json` (chỉ để UDT nhận diện, chưa phải bước cài cuối).
 2. Trên dòng plugin vừa thêm, bấm **Package** (nút gói/hộp hoặc trong menu "...") → chọn nơi lưu → UDT xuất ra file `.ccx`.
 3. Gửi file `.ccx` đó cho người dùng, họ làm theo 3 bước ở trên.
-4. Mỗi lần sửa code, cần bump số `version` trong `manifest.json` rồi Package lại — đổi tên file xuất ra theo đúng version mới (vd `MicCheck_v1.4.0.ccx`) và xóa file `.ccx` phiên bản cũ đi, để tên file luôn khớp số phiên bản bên trong. Người dùng cài file `.ccx` mới (tên khác file cũ) là tự cập nhật.
+4. Mỗi lần sửa code, cần bump số `version` trong `manifest.json` rồi Package lại — đổi tên file xuất ra theo đúng version mới (vd `MicCheck_v1.5.0.ccx`) và xóa file `.ccx` phiên bản cũ đi, để tên file luôn khớp số phiên bản bên trong. Người dùng cài file `.ccx` mới (tên khác file cũ) là tự cập nhật.
 
 ### Cách B — UXP Developer Tool (dùng khi tự dev/sửa code)
 
@@ -53,6 +53,14 @@ Trong panel, gõ mã vào ô **"Mã"** (nhiều mã cách nhau bằng `;`, vd `V
 - File **video** (`.mp4`/`.mov`/`.mxf`/`.avi`) trong thư mục dữ liệu cũng được dò theo **cùng mã** — nếu 1 mã khớp nhiều video (vd nhiều góc quay), mỗi video được đặt vào **1 track V riêng** (V1, V2, ...), không đè/trồng chéo lên nhau. Ảnh nhân vật luôn nằm ở track ngay sau tất cả video đã đặt.
 
 Nếu để trống ô **Mã** và thư mục dữ liệu chỉ có đúng 1 file `.cues.json`, plugin tự chạy luôn file đó (không bắt buộc phải gõ mã cho trường hợp đơn giản 1 dự án).
+
+### Nhiều bảng cạnh nhau trong 1 file/sheet (vd ghép nhiều trận vào 1 sheet Google Sheets)
+
+Converter (Bước 1) tự nhận diện được nếu 1 file `.csv`/`.xlsx` có **nhiều bảng xếp CẠNH NHAU theo cột**, ngăn cách bởi ít nhất 1 cột trống — mỗi bảng có đủ 1 cặp cột "Time Stamp"/"Player" riêng. Yêu cầu duy nhất: **mỗi bảng phải có 1 dòng mã/tên ngay phía trên dòng header của nó** (ô đầu cột của bảng, vd `VN-FL-D3-G2 Week 2`) — dòng này chính là mã dùng ở ô "Mã" trong panel.
+
+Khi phát hiện nhiều bảng, converter tự xuất **riêng 1 bộ `cues.json` + `.srt`** cho từng bảng, đặt tên file theo đúng mã đó (không còn theo tên file gốc) — dùng thẳng luôn với cơ chế "Mã" ở trên, không cần thêm bước nào. File chỉ có **đúng 1 bảng** (trường hợp phổ biến, mẫu chuẩn) thì không cần dòng mã này, hành vi giữ nguyên như cũ (xuất theo tên file gốc).
+
+Nội dung không thuộc bảng nào (vd phần phụ lục thoại rời ở cuối sheet, không có cột Time Stamp/Player) tự động được bỏ qua, không cần xóa tay trước khi chuyển đổi.
 
 ## Quy trình sử dụng (A → Z)
 
