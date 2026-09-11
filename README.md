@@ -7,15 +7,32 @@ Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồ
 ## Yêu cầu
 
 - Adobe Premiere Pro **26.2.0 trở lên** (2026 release, tháng 2/2026+). Bản cũ hơn không có API set frame rate cần dùng.
-- [UXP Developer Tool](https://developer.adobe.com/photoshop/uxp/2022/guides/devtool/) để load plugin (vì plugin này chưa đăng ký trên Adobe Exchange).
 - Python 3.9+ (chỉ cần cho bước chuyển đổi docx → json, không cần để chạy plugin).
+- Tuỳ cách cài (xem 2 lựa chọn bên dưới): **Adobe Creative Cloud Desktop** (cách A, khuyên dùng khi chia sẻ ra ngoài) hoặc [UXP Developer Tool](https://developer.adobe.com/photoshop/uxp/2022/guides/devtool/) (cách B, dùng khi tự dev/sửa code).
 
 ## Cài đặt plugin
+
+### Cách A — file `.ccx` (khuyên dùng để chia sẻ ra ngoài)
+
+Đơn giản nhất cho người nhận không rành kỹ thuật — không cần cài UXP Developer Tool, không cần ký số.
+
+1. Người nhận cần có **Adobe Creative Cloud Desktop** đã cài và đăng nhập sẵn (thường có sẵn nếu đã dùng Premiere).
+2. Double-click file [`MicCheck.ccx`](MicCheck.ccx) (nằm sẵn ở gốc thư mục `mic-check-plugin/`) → Creative Cloud Desktop tự nhận diện và cài vào Premiere Pro.
+3. Mở Premiere Pro (hoặc khởi động lại nếu đang mở) → panel "Mic Check" xuất hiện ở **Window → Extensions → Mic Check**.
+
+**Cách tự đóng gói file `.ccx` (cho người build/chia sẻ):**
+1. Mở **UXP Developer Tool** → **Add Plugin** → chọn `mic-check-plugin/plugin/manifest.json` (chỉ để UDT nhận diện, chưa phải bước cài cuối).
+2. Trên dòng plugin vừa thêm, bấm **Package** (nút gói/hộp hoặc trong menu "...") → chọn nơi lưu → UDT xuất ra file `.ccx`.
+3. Gửi file `.ccx` đó cho người dùng, họ làm theo 3 bước ở trên.
+4. Mỗi lần sửa code, cần bump số `version` trong `manifest.json` rồi Package lại — người dùng cài đè `.ccx` mới lên là tự cập nhật.
+
+### Cách B — UXP Developer Tool (dùng khi tự dev/sửa code)
 
 1. Mở **UXP Developer Tool**.
 2. Bấm **Add Plugin**, chọn file `mic-check-plugin/plugin/manifest.json`.
 3. Bấm **Load** trên dòng plugin vừa thêm (Premiere Pro phải đang mở sẵn).
 4. Panel "Mic Check" xuất hiện trong Premiere: **Window → Extensions (Legacy/UXP) → Mic Check**, hoặc nó tự nổi lên nếu để chế độ floating.
+5. Bật **Watch** trên dòng plugin để Premiere tự reload mỗi khi sửa code — tiện khi đang phát triển.
 
 ## Quy trình sử dụng (A → Z)
 
@@ -65,6 +82,7 @@ Sau đó có thể bấm lại **✓ Verify** — nếu đã kéo caption, panel
 
 ```
 mic-check-plugin/
+├── MicCheck.ccx           — bản đóng gói sẵn, double-click cài qua Creative Cloud Desktop (Cách A)
 ├── plugin/
 │   ├── manifest.json     — khai báo UXP plugin
 │   ├── index.html        — giao diện panel
