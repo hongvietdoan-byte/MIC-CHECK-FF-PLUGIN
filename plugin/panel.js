@@ -22,6 +22,7 @@
   }
 
   $("pluginStatus").textContent = "🟢";
+  $("mcVersion").textContent = `v${MIC_CHECK_VERSION}`;
 
   // --------------------------------------------------------------------------
   // Mic Check
