@@ -856,3 +856,62 @@ async function applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackInde
     xPixels, yPixels, scalePercent, videoTrackIndex, frameWidth, frameHeight
   };
 }
+
+// getValueAtTime() không trả giá trị thô, mà bọc trong { value: ... } — đã live-test xác nhận
+// (Position ra {value:[0.5,0.5]}, Scale ra {value:60}). Hàm này bóc lớp bọc, an toàn nếu sau này
+// API trả trực tiếp giá trị thô.
+function unwrapParamValue(v) {
+  if (v && typeof v === "object" && Object.prototype.hasOwnProperty.call(v, "value") && !("x" in v)) {
+    return v.value;
+  }
+  return v;
+}
+
+// Đọc Position/Scale THẬT hiện tại của clip ảnh đang được chọn trên timeline (vd sau khi user tự
+// kéo tay chỉnh trong Program Monitor) — dùng làm "chuẩn" để áp lại cho các clip khác trên track,
+// thay vì phải tự gõ số tay. Trả về pixel/percent giống hệt applyImageLayout nhận vào, để 2 chiều
+// đọc/ghi luôn khớp đơn vị.
+async function readSelectedClipLayout(log) {
+  const project = await ppro.Project.getActiveProject();
+  if (!project) throw new Error("Không tìm thấy project đang mở.");
+  const sequence = await project.getActiveSequence();
+  if (!sequence) throw new Error("Không có sequence active.");
+
+  let items = [];
+  try {
+    const selectionObj = await sequence.getSelection();
+    items = await selectionObj.getTrackItems();
+  } catch (e) {
+    throw new Error(`Không lấy được clip đang chọn: ${e.message}`);
+  }
+  if (!items || items.length === 0) {
+    throw new Error("Chưa chọn clip nào trên timeline. Click chọn 1 clip ảnh trước.");
+  }
+  const item = items[0];
+
+  const comp = await findComponentInItemChain(item, "AE.ADBE Motion");
+  if (!comp) throw new Error('Clip đang chọn không có effect "Motion" (bất thường).');
+  const posParam = await findParamByName(comp, "Position");
+  const scaleParam = await findParamByName(comp, "Scale");
+  if (!posParam) throw new Error('Không tìm thấy param "Position" trong Motion.');
+  if (!scaleParam) throw new Error('Không tìm thấy param "Scale" trong Motion.');
+
+  const atTick = await item.getInPoint();
+  const posRaw = unwrapParamValue(await posParam.getValueAtTime(atTick));
+  const scaleRaw = unwrapParamValue(await scaleParam.getValueAtTime(atTick));
+
+  let xFrac, yFrac;
+  if (Array.isArray(posRaw)) { xFrac = posRaw[0]; yFrac = posRaw[1]; }
+  else if (posRaw && typeof posRaw.x === "number") { xFrac = posRaw.x; yFrac = posRaw.y; }
+  else throw new Error(`Position trả về dạng không nhận diện được: ${JSON.stringify(posRaw)}`);
+
+  const settings = await sequence.getSettings();
+  const frameRect = await settings.getVideoFrameRect();
+  const xPixels = Math.round(xFrac * frameRect.width);
+  const yPixels = Math.round(yFrac * frameRect.height);
+  const scalePercent = Math.round(Number(scaleRaw) * 100) / 100;
+
+  if (log) log(`Đọc clip đang chọn: Position=(${xPixels}px, ${yPixels}px), Scale=${scalePercent}%.`);
+
+  return { xPixels, yPixels, scalePercent };
+}

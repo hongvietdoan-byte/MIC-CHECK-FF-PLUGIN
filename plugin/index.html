@@ -43,6 +43,11 @@
   .zone-btn:hover { background: #444; }
   .zone-btn.active { background: #2d6cdf; border-color: #2d6cdf; }
 
+  .info-icon { flex-shrink: 0; width: 14px; height: 14px; border-radius: 50%; background: #333;
+    border: 1px solid #666; color: #aaa; font-size: 9px; line-height: 12px; text-align: center;
+    cursor: help; }
+  .info-icon:hover { background: #444; color: #ddd; }
+
   button { background: #333; color: #e4e4e8; border: 1px solid #555; border-radius: 3px;
     padding: 2px 8px; font-size: 10px; height: 22px; cursor: pointer; flex-shrink: 0; }
   button:hover { background: #444; }
@@ -132,7 +137,11 @@
     <input type="number" id="mcLayoutScale" class="small" value="100" step="1">
   </div>
   <div class="actions">
+    <button id="mcLayoutPickBtn" title="Đọc lại Position/Scale THẬT của clip đang chọn trên timeline (vd sau khi bạn tự kéo tay chỉnh trong Program Monitor) và điền vào ô trên.">⇧ Lấy từ ảnh đang chọn</button>
+  </div>
+  <div class="actions">
     <button id="mcLayoutBtn">Áp vị trí cho ảnh trên track</button>
+    <span class="info-icon" title="Sẽ GHI ĐÈ Position/Scale của TOÀN BỘ ảnh trên track đã chọn bằng đúng số ở trên — kể cả những ảnh bạn đã tự kéo tay chỉnh riêng trước đó. Muốn lấy chuẩn từ 1 ảnh đã chỉnh tay, chọn ảnh đó rồi bấm &quot;Lấy từ ảnh đang chọn&quot; trước.">i</span>
   </div>
 
   <div id="log"></div>

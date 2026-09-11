@@ -296,6 +296,22 @@
     $("mcLayoutY").value = Math.round(parseFloat(btn.dataset.y) * h);
   });
 
+  $("mcLayoutPickBtn").addEventListener("click", async () => {
+    $("mcLayoutPickBtn").disabled = true;
+    try {
+      const layout = await readSelectedClipLayout((msg) => logLine("  " + msg));
+      $("mcLayoutX").value = layout.xPixels;
+      $("mcLayoutY").value = layout.yPixels;
+      $("mcLayoutScale").value = layout.scalePercent;
+      document.querySelectorAll("#mcZoneGrid .zone-btn").forEach((b) => b.classList.remove("active"));
+      logLine(`✅ Đã lấy Position=(${layout.xPixels}px, ${layout.yPixels}px), Scale=${layout.scalePercent}% từ ảnh đang chọn. Bấm "Áp vị trí..." để áp cho các ảnh khác trên track.`);
+    } catch (e) {
+      logLine(`❌ Lỗi: ${e.message}`);
+    } finally {
+      $("mcLayoutPickBtn").disabled = false;
+    }
+  });
+
   $("mcLayoutBtn").addEventListener("click", async () => {
     $("mcLayoutBtn").disabled = true;
     const vNumber = parseInt($("mcLayoutTrack").value, 10); // 1 = V1, 2 = V2... (đúng số Premiere hiển thị)
