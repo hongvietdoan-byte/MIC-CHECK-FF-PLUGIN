@@ -32,9 +32,13 @@
     padding-right: 20px;
   }
 
-  .zone-grid { display: grid; grid-template-columns: repeat(3, 18px); grid-template-rows: repeat(3, 18px);
-    gap: 2px; flex-shrink: 0; }
-  .zone-btn { width: 18px; height: 18px; padding: 0; background: #2a2a2d; border: 1px solid #555;
+  /* Dùng <div role="button"> thay vì <button> thật — UXP từng xác nhận native chrome của OS đè mất
+     style tuỳ chỉnh trên <button> thật (đã gặp ở dự án Beat Shake cùng công ty). Cũng tránh dùng
+     display:grid (chưa kiểm chứng trong webview UXP), thay bằng flex lồng flex — pattern đã dùng ổn
+     định khắp file này. */
+  .zone-grid { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+  .zone-row { display: flex; gap: 2px; }
+  .zone-btn { width: 16px; height: 16px; background: #2a2a2d; border: 1px solid #555;
     border-radius: 2px; cursor: pointer; }
   .zone-btn:hover { background: #444; }
   .zone-btn.active { background: #2d6cdf; border-color: #2d6cdf; }
@@ -104,15 +108,21 @@
   <div class="row">
     <label title="Vị trí Position X/Y — pixel tuyệt đối, GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Position của Premiere">Vị trí</label>
     <div class="zone-grid" id="mcZoneGrid">
-      <button class="zone-btn" data-x="0.15" data-y="0.15"></button>
-      <button class="zone-btn" data-x="0.5" data-y="0.15"></button>
-      <button class="zone-btn" data-x="0.85" data-y="0.15"></button>
-      <button class="zone-btn" data-x="0.15" data-y="0.5"></button>
-      <button class="zone-btn active" data-x="0.5" data-y="0.5"></button>
-      <button class="zone-btn" data-x="0.85" data-y="0.5"></button>
-      <button class="zone-btn" data-x="0.15" data-y="0.85"></button>
-      <button class="zone-btn" data-x="0.5" data-y="0.85"></button>
-      <button class="zone-btn" data-x="0.85" data-y="0.85"></button>
+      <div class="zone-row">
+        <div class="zone-btn" role="button" data-x="0.15" data-y="0.15"></div>
+        <div class="zone-btn" role="button" data-x="0.5" data-y="0.15"></div>
+        <div class="zone-btn" role="button" data-x="0.85" data-y="0.15"></div>
+      </div>
+      <div class="zone-row">
+        <div class="zone-btn" role="button" data-x="0.15" data-y="0.5"></div>
+        <div class="zone-btn active" role="button" data-x="0.5" data-y="0.5"></div>
+        <div class="zone-btn" role="button" data-x="0.85" data-y="0.5"></div>
+      </div>
+      <div class="zone-row">
+        <div class="zone-btn" role="button" data-x="0.15" data-y="0.85"></div>
+        <div class="zone-btn" role="button" data-x="0.5" data-y="0.85"></div>
+        <div class="zone-btn" role="button" data-x="0.85" data-y="0.85"></div>
+      </div>
     </div>
     <input type="number" id="mcLayoutX" class="small" value="960" step="1">
     <input type="number" id="mcLayoutY" class="small" value="540" step="1">
