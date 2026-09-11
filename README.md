@@ -17,14 +17,14 @@ Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồ
 Đơn giản nhất cho người nhận không rành kỹ thuật — không cần cài UXP Developer Tool, không cần ký số.
 
 1. Người nhận cần có **Adobe Creative Cloud Desktop** đã cài và đăng nhập sẵn (thường có sẵn nếu đã dùng Premiere).
-2. Double-click file [`MicCheck.ccx`](MicCheck.ccx) (nằm sẵn ở gốc thư mục `mic-check-plugin/`) → Creative Cloud Desktop tự nhận diện và cài vào Premiere Pro.
+2. Double-click file `.ccx` ở gốc thư mục `mic-check-plugin/` (tên có kèm số phiên bản, hiện tại là [`MicCheck_v1.4.0.ccx`](MicCheck_v1.4.0.ccx)) → Creative Cloud Desktop tự nhận diện và cài vào Premiere Pro.
 3. Mở Premiere Pro (hoặc khởi động lại nếu đang mở) → panel "Mic Check" xuất hiện ở **Window → Extensions → Mic Check**.
 
 **Cách tự đóng gói file `.ccx` (cho người build/chia sẻ):**
 1. Mở **UXP Developer Tool** → **Add Plugin** → chọn `mic-check-plugin/plugin/manifest.json` (chỉ để UDT nhận diện, chưa phải bước cài cuối).
 2. Trên dòng plugin vừa thêm, bấm **Package** (nút gói/hộp hoặc trong menu "...") → chọn nơi lưu → UDT xuất ra file `.ccx`.
 3. Gửi file `.ccx` đó cho người dùng, họ làm theo 3 bước ở trên.
-4. Mỗi lần sửa code, cần bump số `version` trong `manifest.json` rồi Package lại — người dùng cài đè `.ccx` mới lên là tự cập nhật.
+4. Mỗi lần sửa code, cần bump số `version` trong `manifest.json` rồi Package lại — đổi tên file xuất ra theo đúng version mới (vd `MicCheck_v1.4.0.ccx`) và xóa file `.ccx` phiên bản cũ đi, để tên file luôn khớp số phiên bản bên trong. Người dùng cài file `.ccx` mới (tên khác file cũ) là tự cập nhật.
 
 ### Cách B — UXP Developer Tool (dùng khi tự dev/sửa code)
 
@@ -119,7 +119,7 @@ Sau đó có thể bấm lại **✓ Verify** — nếu đã kéo caption, panel
 
 ```
 mic-check-plugin/
-├── MicCheck.ccx                 — bản đóng gói sẵn, double-click cài qua Creative Cloud Desktop (Cách A)
+├── MicCheck_v<version>.ccx      — bản đóng gói sẵn (tên kèm số phiên bản), double-click cài qua Creative Cloud Desktop (Cách A)
 ├── File_Mau_Docx_Mic_Check.docx — file .docx mẫu đúng format, dùng làm điểm bắt đầu (Bước 1)
 ├── plugin/
 │   ├── manifest.json     — khai báo UXP plugin
@@ -142,7 +142,7 @@ pyinstaller --onefile --name Chuyen_Doi_File_Mic_Check --distpath . --workpath b
 ```
 File `.exe` mới sẽ ghi đè lên bản cũ trong `scripts/`.
 
-**Gói riêng để chia sẻ ra ngoài** (chỉ 4 file, không thư mục con — tránh người mới nhầm lẫn giữa nhiều file): xem thư mục `Mic Check Plugin - Share/` ở gốc repo, gồm `MicCheck.ccx` + `File_Mau_Docx_Mic_Check.docx` + `Chuyen_Doi_File_Mic_Check.exe` + `HUONG_DAN_SU_DUNG.txt`.
+**Gói riêng để chia sẻ ra ngoài** (chỉ 4 file, không thư mục con — tránh người mới nhầm lẫn giữa nhiều file): xem thư mục `Mic Check Plugin - Share/` ở gốc repo, gồm `MicCheck_v<version>.ccx` + `File_Mau_Docx_Mic_Check.docx` + `Chuyen_Doi_File_Mic_Check.exe` + `HUONG_DAN_SU_DUNG.txt`.
 
 ## Ghi chú / giới hạn đã biết
 
