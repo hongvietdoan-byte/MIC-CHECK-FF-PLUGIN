@@ -44,6 +44,8 @@ Bạn cần một thư mục chứa:
 - (Tuỳ chọn) 1 file video nền (`.mp4`/`.mov`/`.mxf`/`.avi`)
 - (Tuỳ chọn) file `.srt` nếu muốn caption
 
+Chưa có sẵn file `.docx`? Mở [`File_Mau_Docx_Mic_Check.docx`](File_Mau_Docx_Mic_Check.docx) — file mẫu đúng format, xoá dòng ví dụ và điền dữ liệu thật vào là dùng được ngay.
+
 Nếu chỉ có `.docx`, chuyển đổi sang `cues.json` + `.srt` bằng một trong hai cách:
 
 **Cách nhanh (khuyên dùng — không cần cài gì cả):**
@@ -87,7 +89,8 @@ Sau đó có thể bấm lại **✓ Verify** — nếu đã kéo caption, panel
 
 ```
 mic-check-plugin/
-├── MicCheck.ccx           — bản đóng gói sẵn, double-click cài qua Creative Cloud Desktop (Cách A)
+├── MicCheck.ccx                 — bản đóng gói sẵn, double-click cài qua Creative Cloud Desktop (Cách A)
+├── File_Mau_Docx_Mic_Check.docx — file .docx mẫu đúng format, dùng làm điểm bắt đầu (Bước 1)
 ├── plugin/
 │   ├── manifest.json     — khai báo UXP plugin
 │   ├── index.html        — giao diện panel
@@ -109,7 +112,7 @@ pyinstaller --onefile --name Chuyen_Doi_File_Docx_Mic_Check --distpath . --workp
 ```
 File `.exe` mới sẽ ghi đè lên bản cũ trong `scripts/`.
 
-**Gói riêng để chia sẻ ra ngoài** (chỉ 3 file, không thư mục con — tránh người mới nhầm lẫn giữa nhiều file): xem thư mục `Mic Check Plugin - Share/` ở gốc repo, gồm `MicCheck.ccx` + `Chuyen_Doi_File_Docx_Mic_Check.exe` + `HUONG_DAN_SU_DUNG.txt`.
+**Gói riêng để chia sẻ ra ngoài** (chỉ 4 file, không thư mục con — tránh người mới nhầm lẫn giữa nhiều file): xem thư mục `Mic Check Plugin - Share/` ở gốc repo, gồm `MicCheck.ccx` + `File_Mau_Docx_Mic_Check.docx` + `Chuyen_Doi_File_Docx_Mic_Check.exe` + `HUONG_DAN_SU_DUNG.txt`.
 
 ## Ghi chú / giới hạn đã biết
 
