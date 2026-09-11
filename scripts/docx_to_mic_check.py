@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-docx_to_mic_check.py — Đọc bảng "Time Stamp | Player | EN" trong file .docx hoặc .csv (mẫu Mic
+docx_to_mic_check.py — Đọc bảng "Time Stamp | Player | EN" trong file .docx/.csv/.xlsx (mẫu Mic
 Check) và xuất RA CẢ 2 FILE: cues.json (dùng cho run_mic_check_workflow) và .srt (kéo vào caption
 track).
 
@@ -9,17 +9,18 @@ thư mục) — không cần cột "Ảnh" riêng nữa, tận dụng luôn dữ
 
 Xuất cả 2 từ CÙNG 1 nguồn dữ liệu (bảng) — đảm bảo SRT và JSON luôn khớp nhau tuyệt đối, không cần
 chuẩn bị .srt riêng nữa. Dùng python-docx đọc trực tiếp qua Table API cho .docx (không regex/XML
-thô), và module csv chuẩn cho .csv — bền hơn vì đọc đúng theo cấu trúc cell/dòng thật, không phụ
-thuộc giả định thứ tự dòng.
+thô), module csv chuẩn cho .csv, và openpyxl cho .xlsx (data_only=True lấy giá trị công thức đã
+tính, không lấy công thức thô) — bền hơn vì đọc đúng theo cấu trúc cell/dòng thật, không phụ thuộc
+giả định thứ tự dòng.
 
 Chạy NGOÀI Premiere (Python thuần) — không phụ thuộc UXP, không cần Claude cho các lần chạy lại.
 
 Usage (2 cách, cùng 1 script):
-    1) Kéo-thả: kéo file .docx hoặc .csv tha thang vao Chuyen_Doi_File_Mic_Check.exe (hoac file .py
-       neu chay qua python) — tu suy ra --images/--out-dir la thu muc chua file do do.
+    1) Kéo-thả: kéo file .docx/.csv/.xlsx tha thang vao Chuyen_Doi_File_Mic_Check.exe (hoac file
+       .py neu chay qua python) — tu suy ra --images/--out-dir la thu muc chua file do do.
            Chuyen_Doi_File_Mic_Check.exe "duong/dan/file.docx"
     2) Dong lenh, tuy chinh thu muc anh/xuat rieng:
-           python docx_to_mic_check.py --input <path.docx|path.csv> --images <thư mục ảnh> --out-dir <thư mục xuất>
+           python docx_to_mic_check.py --input <path.docx|path.csv|path.xlsx> --images <thư mục ảnh> --out-dir <thư mục xuất>
 
 Số lượng cue KHÔNG hardcode — script tự đọc bất kỳ số dòng nào có trong bảng/file.
 """
@@ -41,10 +42,11 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 from docx import Document
+from openpyxl import load_workbook
 
 TIMESTAMP_RE = re.compile(r"(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)")
 
-SUPPORTED_EXTENSIONS = (".docx", ".csv")
+SUPPORTED_EXTENSIONS = (".docx", ".csv", ".xlsx")
 
 # Ký tự Windows cấm dùng trong tên file — chỉ để phòng hờ Player có ký tự lạ, không đổi tên bình
 # thường (vd "FL.ABCD" giữ nguyên, dấu chấm hợp lệ trong filename).
@@ -55,9 +57,19 @@ def to_seconds(h, m, s, ms):
     return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
 
 
+def _cell_to_str(value) -> str:
+    # Excel có thể trả về None (ô trống), số, hoặc datetime.time/datetime.datetime nếu ô được Excel
+    # tự nhận dạng là giờ/ngày — ép hết về string để dùng chung logic parse với docx/csv. Cột Time
+    # Stamp dạng "00:00:01,200 --> 00:00:02,500" có dấu phẩy/mũi tên nên Excel không tự convert
+    # thành time thật, nhưng vẫn phòng hờ cho các cột khác lỡ bị Excel tự định dạng.
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 def load_rows(path: Path):
-    """Đọc file .docx/.csv thành list các dòng, mỗi dòng là list ô text đã strip() — chuẩn hoá về
-    1 định dạng chung để phần parse phía sau dùng chung logic, không quan tâm nguồn gốc file."""
+    """Đọc file .docx/.csv/.xlsx thành list các dòng, mỗi dòng là list ô text đã strip() — chuẩn
+    hoá về 1 định dạng chung để phần parse phía sau dùng chung logic, không quan tâm nguồn gốc file."""
     suffix = path.suffix.lower()
     if suffix == ".docx":
         doc = Document(str(path))
@@ -72,6 +84,14 @@ def load_rows(path: Path):
         with open(path, "r", encoding="utf-8-sig", newline="") as f:
             reader = csv.reader(f)
             return [[cell.strip() for cell in row] for row in reader if row]
+
+    if suffix == ".xlsx":
+        # data_only=True lấy giá trị đã TÍNH SẴN của công thức (không lấy công thức thô "=A1&B1").
+        wb = load_workbook(str(path), data_only=True, read_only=True)
+        ws = wb.active  # luôn đọc sheet đang active khi lưu file — không đoán tên sheet.
+        rows = [[_cell_to_str(cell) for cell in row] for row in ws.iter_rows(values_only=True)]
+        wb.close()
+        return [row for row in rows if any(row)]  # bỏ dòng trống hoàn toàn
 
     raise ValueError(
         f'Định dạng file "{path.suffix}" chưa được hỗ trợ. Chỉ đọc được: '

@@ -74,7 +74,7 @@
 
     if (mcState.cuesCandidates.length === 0) {
       rows.push(`<div class="detected-row"><span class="detected-icon err">✕</span>
-        <span>Không thấy file *.cues.json — kéo file .docx/.csv vào scripts/Chuyen_Doi_File_Mic_Check.exe trước.</span></div>`);
+        <span>Không thấy file *.cues.json — kéo file .docx/.csv/.xlsx vào scripts/Chuyen_Doi_File_Mic_Check.exe trước.</span></div>`);
     } else if (mcState.cuesCandidates.length === 1) {
       rows.push(`<div class="detected-row"><span class="detected-icon ok">✓</span>
         <span>cues.json: ${mcState.cuesCandidates[0].name}</span></div>`);
