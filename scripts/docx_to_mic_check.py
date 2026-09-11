@@ -22,6 +22,15 @@ import re
 import sys
 from pathlib import Path
 
+# Console Windows mặc định dùng codepage cp1252/cp850, không encode được tiếng Việt (ký tự "Đọc",
+# "Ảnh"...) — ép UTF-8 ngay tại đây thay vì chỉ dựa vào biến môi trường PYTHONIOENCODING (bản .exe
+# đóng gói qua PyInstaller có thể bị double-click trực tiếp, không qua Chuyen_Doi_Mic_Check.bat).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 from docx import Document
 
 TIMESTAMP_RE = re.compile(r"(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)")

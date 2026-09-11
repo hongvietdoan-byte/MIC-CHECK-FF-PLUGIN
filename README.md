@@ -7,7 +7,7 @@ Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồ
 ## Yêu cầu
 
 - Adobe Premiere Pro **26.2.0 trở lên** (2026 release, tháng 2/2026+). Bản cũ hơn không có API set frame rate cần dùng.
-- Python 3.9+ (chỉ cần cho bước chuyển đổi docx → json, không cần để chạy plugin).
+- **Không cần cài Python** — `scripts/docx_to_mic_check.exe` đã đóng gói sẵn Python + thư viện, double-click/kéo-thả dùng ngay. (Python 3.9+ chỉ cần nếu bạn muốn tự sửa/build lại từ `docx_to_mic_check.py`.)
 - Tuỳ cách cài (xem 2 lựa chọn bên dưới): **Adobe Creative Cloud Desktop** (cách A, khuyên dùng khi chia sẻ ra ngoài) hoặc [UXP Developer Tool](https://developer.adobe.com/photoshop/uxp/2022/guides/devtool/) (cách B, dùng khi tự dev/sửa code).
 
 ## Cài đặt plugin
@@ -44,15 +44,20 @@ Bạn cần một thư mục chứa:
 - (Tuỳ chọn) 1 file video nền (`.mp4`/`.mov`/`.mxf`/`.avi`)
 - (Tuỳ chọn) file `.srt` nếu muốn caption
 
-Nếu chỉ có `.docx`, chuyển đổi sang `cues.json` + `.srt` bằng một trong hai cách:
+Nếu chỉ có `.docx`, chuyển đổi sang `cues.json` + `.srt` bằng một trong ba cách:
 
-**Cách nhanh (khuyên dùng cho người không rành kỹ thuật):**
-Kéo thả file `.docx` vào `scripts/Chuyen_Doi_Mic_Check.bat`. Kết quả (`<tên>.cues.json`, `<tên>.srt`) sẽ được tạo ngay trong thư mục chứa file docx.
+**Cách nhanh (khuyên dùng — không cần cài gì cả):**
+Kéo thả file `.docx` vào `scripts/Chuyen_Doi_Mic_Check.bat`. Kết quả (`<tên>.cues.json`, `<tên>.srt`) sẽ được tạo ngay trong thư mục chứa file docx. `.bat` này tự gọi `docx_to_mic_check.exe` (đã đóng gói sẵn Python) nằm cùng thư mục — không cần cài Python.
 
-**Cách dùng dòng lệnh:**
+**Cách dùng file .exe trực tiếp (dòng lệnh, không cần Python):**
+```bash
+scripts/docx_to_mic_check.exe --docx "duong/dan/file.docx" --images "thu muc anh" --out-dir "thu muc xuat"
+```
+
+**Cách chạy từ source .py (chỉ cần khi tự sửa code):**
 ```bash
 pip install -r scripts/requirements.txt
-python scripts/docx_to_mic_check.py "duong/dan/file.docx"
+python scripts/docx_to_mic_check.py --docx "duong/dan/file.docx" --images "thu muc anh" --out-dir "thu muc xuat"
 ```
 
 ### Bước 2 — Chạy Mic Check trong Premiere
@@ -90,11 +95,20 @@ mic-check-plugin/
 │   ├── actions.js         — toàn bộ logic tương tác Premiere (UXP API)
 │   └── icons/icon.png
 ├── scripts/
-│   ├── docx_to_mic_check.py     — chuyển docx → cues.json + srt
+│   ├── docx_to_mic_check.exe    — bản .exe đóng gói sẵn (không cần cài Python), .bat gọi file này
+│   ├── docx_to_mic_check.py     — source Python, chỉ cần khi tự sửa/build lại .exe
 │   ├── Chuyen_Doi_Mic_Check.bat — launcher kéo-thả cho người không rành kỹ thuật
-│   └── requirements.txt
+│   └── requirements.txt         — dependency để chạy/build từ source .py
 └── README.md
 ```
+
+**Build lại `.exe` sau khi sửa `docx_to_mic_check.py`** (cần Python + pip):
+```bash
+pip install -r scripts/requirements.txt pyinstaller
+cd scripts
+pyinstaller --onefile --name docx_to_mic_check --distpath . --workpath build --specpath build docx_to_mic_check.py
+```
+File `.exe` mới sẽ ghi đè lên bản cũ trong `scripts/`.
 
 ## Ghi chú / giới hạn đã biết
 

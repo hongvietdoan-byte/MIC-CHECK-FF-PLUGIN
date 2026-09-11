@@ -25,14 +25,6 @@ if /I not "%~x1"==".docx" (
     exit /b 1
 )
 
-where py >nul 2>nul
-if errorlevel 1 (
-    echo Loi: khong tim thay Python ^(lenh "py"^). Can cai Python truoc: https://www.python.org/downloads/
-    echo.
-    pause
-    exit /b 1
-)
-
 set "DOCX=%~1"
 set "FOLDER=%~dp1"
 REM %~dp1 luon co dau \ o cuoi - bo di, vi "duong dan\" trong dau ngoac kep se bi Windows hieu
@@ -43,7 +35,21 @@ echo File docx : %DOCX%
 echo Thu muc   : %FOLDER%
 echo.
 
-py "%~dp0docx_to_mic_check.py" --docx "%DOCX%" --images "%FOLDER%" --out-dir "%FOLDER%"
+REM Uu tien ban .exe dong goi san (khong can cai Python) - chi fallback ve "python script.py" khi
+REM dev chay tu source chua build .exe.
+if exist "%~dp0docx_to_mic_check.exe" (
+    "%~dp0docx_to_mic_check.exe" --docx "%DOCX%" --images "%FOLDER%" --out-dir "%FOLDER%"
+) else (
+    where py >nul 2>nul
+    if errorlevel 1 (
+        echo Loi: khong tim thay docx_to_mic_check.exe lan khong tim thay Python ^(lenh "py"^).
+        echo Can cai Python truoc: https://www.python.org/downloads/
+        echo.
+        pause
+        exit /b 1
+    )
+    py "%~dp0docx_to_mic_check.py" --docx "%DOCX%" --images "%FOLDER%" --out-dir "%FOLDER%"
+)
 
 echo.
 if errorlevel 1 (
