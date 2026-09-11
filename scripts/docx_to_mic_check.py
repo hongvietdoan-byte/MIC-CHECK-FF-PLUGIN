@@ -50,8 +50,14 @@ from docx import Document
 from openpyxl import load_workbook
 
 # Chấp nhận cả "-->" (kiểu SRT chuẩn) lẫn "→" (mũi tên Unicode U+2192 — gặp thật trong file export từ
-# Google Sheets của user, 2026-09-11).
-TIMESTAMP_RE = re.compile(r"(\d+):(\d+):(\d+)[,.](\d+)\s*(?:-->|→)\s*(\d+):(\d+):(\d+)[,.](\d+)")
+# Google Sheets, 2026-09-11). Giờ (H) và mili giây (ms) đều TUỲ CHỌN — gặp thật 2 kiểu khác nhau
+# trong cùng ngày: "00:00:00,000 --> 00:00:01,200" (đủ H:M:S,ms) và "00:00 --> 00:01" (chỉ M:S, không
+# giờ không ms). Regex dùng nhóm optional "(?:(\d+):)?" cho giờ + "(?:[,.](\d+))?" cho ms, dựa vào cơ
+# chế backtrack tự nhiên của regex để tự phân biệt đúng M:S,ms với H:M:S (không ms) — không cần đoán
+# thêm logic gì khác.
+TIMESTAMP_RE = re.compile(
+    r"(?:(\d+):)?(\d+):(\d+)(?:[,.](\d+))?\s*(?:-->|→)\s*(?:(\d+):)?(\d+):(\d+)(?:[,.](\d+))?"
+)
 
 SUPPORTED_EXTENSIONS = (".docx", ".csv", ".xlsx")
 
@@ -65,7 +71,10 @@ def sanitize_filename_component(text: str) -> str:
 
 
 def to_seconds(h, m, s, ms):
-    return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
+    # h và ms có thể là None (timestamp kiểu "MM:SS" không có giờ/mili giây) — coi như 0.
+    h = int(h) if h else 0
+    ms = int(ms) if ms else 0
+    return h * 3600 + int(m) * 60 + int(s) + ms / 1000
 
 
 def _cell_to_str(value) -> str:
