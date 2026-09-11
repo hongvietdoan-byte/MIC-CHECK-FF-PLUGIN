@@ -11,9 +11,9 @@ thuộc giả định thứ tự dòng.
 Chạy NGOÀI Premiere (Python thuần) — không phụ thuộc UXP, không cần Claude cho các lần chạy lại.
 
 Usage (2 cách, cùng 1 script):
-    1) Kéo-thả: kéo file .docx tha thang vao docx_to_mic_check.exe (hoac file .py neu chay qua
-       python) — tu suy ra --images/--out-dir la thu muc chua file .docx do.
-           docx_to_mic_check.exe "duong/dan/file.docx"
+    1) Kéo-thả: kéo file .docx tha thang vao Chuyen_Doi_File_Docx_Mic_Check.exe (hoac file .py
+       neu chay qua python) — tu suy ra --images/--out-dir la thu muc chua file .docx do.
+           Chuyen_Doi_File_Docx_Mic_Check.exe "duong/dan/file.docx"
     2) Dong lenh, tuy chinh thu muc anh/xuat rieng:
            python docx_to_mic_check.py --docx <path.docx> --images <thư mục ảnh> --out-dir <thư mục xuất>
 
@@ -27,8 +27,8 @@ import sys
 from pathlib import Path
 
 # Console Windows mặc định dùng codepage cp1252/cp850, không encode được tiếng Việt (ký tự "Đọc",
-# "Ảnh"...) — ép UTF-8 ngay tại đây thay vì chỉ dựa vào biến môi trường PYTHONIOENCODING (bản .exe
-# đóng gói qua PyInstaller có thể bị double-click trực tiếp, không qua Chuyen_Doi_Mic_Check.bat).
+# "Ảnh"...) — ép UTF-8 ngay tại đây vì bản .exe đóng gói qua PyInstaller được double-click/kéo-thả
+# trực tiếp, không có gì đặt sẵn PYTHONIOENCODING trước khi chạy.
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8")
