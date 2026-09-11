@@ -5,78 +5,86 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #1e1e21; color: #e4e4e8; font-family: -apple-system, sans-serif;
-    font-size: 11px; padding: 12px; }
-  h3 { font-size: 13px; color: #fff; margin-bottom: 4px; }
-  .subtitle { color: #666; font-size: 10px; margin-bottom: 10px; }
+    font-size: 10px; padding: 8px; }
 
-  section { margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; }
-  section h4 { font-size: 11px; color: #fff; margin-bottom: 6px; }
+  .head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .head b { font-size: 11px; color: #fff; }
+  .head .dot { font-size: 9px; }
+  .head .subtitle { color: #666; font-size: 9px; margin-left: auto; }
 
-  .row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
-  .row label { width: 88px; flex-shrink: 0; color: #999; }
+  .row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+  .row label { width: 44px; flex-shrink: 0; color: #999; font-size: 10px; white-space: nowrap; cursor: default; }
   .row .val { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ccc; font-size: 10px; }
-  .row input[type=text], .row input[type=number], .row select {
+
+  .row input[type=text], .row select {
     background: #2a2a2d; color: #e4e4e8; border: 1px solid #555; border-radius: 3px;
-    padding: 3px 6px; font-size: 10px; flex: 1; }
+    padding: 2px 6px; font-size: 10px; height: 22px; flex: 1; }
+
+  .row select {
+    appearance: none; -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, #999 50%), linear-gradient(135deg, #999 50%, transparent 50%);
+    background-position: right 9px center, right 5px center;
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+    padding-right: 20px;
+  }
 
   button { background: #333; color: #e4e4e8; border: 1px solid #555; border-radius: 3px;
-    padding: 3px 8px; font-size: 10px; cursor: pointer; }
+    padding: 2px 8px; font-size: 10px; height: 22px; cursor: pointer; flex-shrink: 0; }
   button:hover { background: #444; }
   button.primary { background: #2d6cdf; border-color: #2d6cdf; }
   button.primary:hover { background: #3a7bf0; }
-  button.danger { background: #7a2d2d; border-color: #7a2d2d; }
-  button.danger:hover { background: #963636; }
   button:disabled { opacity: 0.5; cursor: default; }
 
-  .actions { display: flex; gap: 6px; margin-top: 6px; }
+  .actions { display: flex; gap: 5px; margin-top: 4px; margin-bottom: 4px; }
+  .actions button { flex: 1; height: 24px; }
 
-  .detected { background: #232326; border-radius: 3px; padding: 6px 8px; margin-bottom: 6px; font-size: 10px; color: #aaa; max-height: 140px; overflow-y: auto; }
-  .detected-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .detected { background: #232326; border-radius: 3px; padding: 5px 7px; margin-bottom: 4px;
+    font-size: 9px; color: #aaa; max-height: 110px; overflow-y: auto; }
+  .detected:empty { display: none; padding: 0; margin: 0; }
+  .detected-row { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
   .detected-row:last-child { margin-bottom: 0; }
-  .detected-icon { width: 14px; flex-shrink: 0; text-align: center; }
+  .detected-icon { width: 12px; flex-shrink: 0; text-align: center; }
   .ok { color: #6cd67a; }
   .warn { color: #e0b846; }
   .err { color: #e06060; }
 
-  #log { margin-top: 8px; max-height: 160px; overflow-y: auto; background: #141416;
-    border-radius: 3px; padding: 6px; font-size: 10px; line-height: 1.5; white-space: pre-wrap; }
+  #log { margin-top: 4px; max-height: 130px; overflow-y: auto; background: #141416;
+    border-radius: 3px; padding: 5px; font-size: 9px; line-height: 1.45; white-space: pre-wrap; }
 </style>
 </head>
 <body>
-  <h3>Mic Check <span id="pluginStatus">⚫</span></h3>
-  <div class="subtitle">Chạy độc lập trong Premiere — không cần server/Claude/mạng.</div>
+  <div class="head">
+    <b>Mic Check</b><span class="dot" id="pluginStatus">⚫</span>
+    <span class="subtitle">độc lập — không cần Claude/mạng</span>
+  </div>
 
-  <section id="micCheckSection">
-    <h4>Mic Check</h4>
-    <div class="body">
-      <div class="row">
-        <label>Thư mục ảnh</label>
-        <span class="val" id="mcImagesPath">(chưa chọn)</span>
-        <button id="mcPickImages">Chọn</button>
-      </div>
-      <div class="row">
-        <label>Thư mục dữ liệu</label>
-        <span class="val" id="mcFolderPath">(chưa chọn)</span>
-        <button id="mcPickFolder">Chọn</button>
-      </div>
-      <div id="mcDetected" class="detected"></div>
-      <div class="row">
-        <label>Mã (; nếu nhiều)</label>
-        <input type="text" id="mcCodes" placeholder="vd: VN-FL-D3-G2; VN-FL-D3-G1">
-      </div>
-      <div class="row">
-        <label>Hướng khung hình</label>
-        <select id="mcOrientation">
-          <option value="landscape">Landscape 1920x1080</option>
-          <option value="portrait">Portrait 1080x1920</option>
-        </select>
-      </div>
-      <div class="actions">
-        <button id="mcRunBtn" class="primary" disabled>▶ Chạy Mic Check</button>
-        <button id="mcVerifyBtn" disabled>✓ Verify</button>
-      </div>
-    </div>
-  </section>
+  <div class="row">
+    <label title="Thư mục ảnh nhân vật dùng chung">Ảnh</label>
+    <span class="val" id="mcImagesPath">(chưa chọn)</span>
+    <button id="mcPickImages">Chọn</button>
+  </div>
+  <div class="row">
+    <label title="Thư mục dữ liệu (cues.json/.srt/video)">Dữ liệu</label>
+    <span class="val" id="mcFolderPath">(chưa chọn)</span>
+    <button id="mcPickFolder">Chọn</button>
+  </div>
+  <div id="mcDetected" class="detected"></div>
+  <div class="row">
+    <label title="Nhiều mã cách nhau bằng dấu ;">Mã</label>
+    <input type="text" id="mcCodes" placeholder="VN-FL-D3-G2; VN-FL-D3-G1">
+  </div>
+  <div class="row">
+    <label>Hướng</label>
+    <select id="mcOrientation">
+      <option value="landscape">Landscape 1920x1080</option>
+      <option value="portrait">Portrait 1080x1920</option>
+    </select>
+  </div>
+  <div class="actions">
+    <button id="mcRunBtn" class="primary" disabled>▶ Chạy Mic Check</button>
+    <button id="mcVerifyBtn" disabled>✓ Verify</button>
+  </div>
 
   <div id="log"></div>
 
