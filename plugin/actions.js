@@ -616,7 +616,12 @@ async function runMicCheckWorkflow({
       mode: "overwrite"
     }));
   if (log) log(`Đặt ${placements.length} ảnh theo cues (track V${imageVideoTrackIndex + 1})...`);
-  const placeResult = await batchPlaceClips({ placements }, log);
+  // batchPlaceClips() ném lỗi nếu placements rỗng — hoàn toàn có thể rỗng nếu TOÀN BỘ player của
+  // cues.json này đều thiếu ảnh (vd chọn nhầm/chưa có ảnh trong thư mục ảnh dùng chung), không nên
+  // để lỗi đó làm gãy cả lần chạy, chỉ cần báo rõ 0 ảnh đặt được qua missingPlayers.
+  const placeResult = placements.length > 0
+    ? await batchPlaceClips({ placements }, log)
+    : { total: 0, placed: 0, failed: [] };
   placeResult.missingPlayers = missingPlayers;
 
   return {
