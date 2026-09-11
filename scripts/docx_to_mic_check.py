@@ -71,11 +71,18 @@ def parse_cues(docx_path: Path):
     header_idx, col_map = find_header_row(table)
 
     cues = []
+    rejected_timestamps = []  # để báo lỗi rõ nếu cuối cùng không ra cue nào nhưng có dòng có vẻ là dữ liệu
     for row in list(table.rows)[header_idx + 1:]:
         ts_text = row.cells[col_map["timestamp"]].text.strip()
         m = TIMESTAMP_RE.match(ts_text)
         if not m:
-            continue  # dòng trang trí/rỗng (vd dòng phụ đề "Text") — bỏ qua, không phải lỗi
+            if ts_text:
+                # dòng có nội dung nhưng không khớp định dạng — có thể là dòng trang trí (vd tiêu đề
+                # "Text"), nhưng cũng có thể là timestamp gõ sai định dạng, nên lưu lại vài ví dụ đầu
+                # tiên để báo lỗi rõ hơn nếu cuối cùng parse ra 0 cue.
+                if len(rejected_timestamps) < 5:
+                    rejected_timestamps.append(ts_text)
+            continue  # dòng trang trí/rỗng — bỏ qua, không phải lỗi (trừ khi không ra cue nào ở cuối)
 
         start = to_seconds(m.group(1), m.group(2), m.group(3), m.group(4))
         end = to_seconds(m.group(5), m.group(6), m.group(7), m.group(8))
@@ -94,7 +101,18 @@ def parse_cues(docx_path: Path):
         })
 
     if not cues:
-        raise ValueError("Parse xong nhưng không ra cue nào — kiểm tra lại nội dung bảng.")
+        if rejected_timestamps:
+            examples = "\n".join(f'  - "{t}"' for t in rejected_timestamps)
+            raise ValueError(
+                "Parse xong nhưng không ra cue nào. Cột \"Time Stamp\" có nội dung nhưng KHÔNG đúng "
+                'định dạng bắt buộc "GIO:PHUT:GIAY,MILIGIAY --> GIO:PHUT:GIAY,MILIGIAY" '
+                '(vd: 00:00:01,200 --> 00:00:02,500).\n'
+                f"Vài giá trị tìm thấy trong cột Time Stamp (không khớp định dạng):\n{examples}"
+            )
+        raise ValueError(
+            "Parse xong nhưng không ra cue nào — cột \"Time Stamp\" trống ở mọi dòng dữ liệu, "
+            "kiểm tra lại nội dung bảng."
+        )
     return cues
 
 
