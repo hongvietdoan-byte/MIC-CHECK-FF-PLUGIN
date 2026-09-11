@@ -33,6 +33,38 @@ async function readTextFile(path) {
   return await entry.read({ format: uxpFormats.utf8 });
 }
 
+const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);
+
+// Quét ĐỆ QUY toàn bộ thư mục ảnh (kể cả thư mục con lộn xộn nhiều cấp) 1 lần, dựng map
+// "tên file không đuôi (chữ thường)" -> đường dẫn thật. Dùng 1 lần quét chung cho mọi player thay vì
+// quét riêng từng player — nhanh hơn nhiều khi có hàng chục cue cùng thư mục ảnh lớn.
+async function buildImageIndex(imagesDirPath) {
+  const rawUrl = "file:///" + imagesDirPath.replace(/\\/g, "/");
+  const rootEntry = await uxpFs.getEntryWithUrl(rawUrl);
+  const index = new Map();
+
+  async function walk(folderEntry) {
+    let entries;
+    try { entries = await folderEntry.getEntries(); } catch { return; }
+    for (const entry of entries) {
+      if (entry.isFolder) {
+        await walk(entry);
+        continue;
+      }
+      if (!entry.isFile) continue;
+      const dot = entry.name.lastIndexOf(".");
+      if (dot < 0) continue;
+      const ext = entry.name.slice(dot).toLowerCase();
+      if (!IMAGE_EXTENSIONS.has(ext)) continue;
+      const base = entry.name.slice(0, dot).toLowerCase();
+      if (!index.has(base)) index.set(base, entry.nativePath); // giữ file tìm thấy ĐẦU TIÊN nếu trùng tên khác đuôi
+    }
+  }
+
+  await walk(rootEntry);
+  return index;
+}
+
 async function findProjectItemInBin(binItem, name) {
   let items;
   try { items = await binItem.getItems(); } catch { return null; }
@@ -481,6 +513,20 @@ async function setActiveSequenceTool({ name }) {
   return { activated: true, name };
 }
 
+// Dùng cho nút "Verify" trong panel — panel không tự lưu sequence nào ứng với cues.json nào (có thể
+// đã tạo nhiều sequence trong 1 lần chạy batch theo mã), nên tự hỏi Premiere sequence nào đang active
+// rồi suy ngược ra file cues.json tương ứng theo tên.
+async function getActiveSequenceNameTool() {
+  const project = await ppro.Project.getActiveProject();
+  if (!project) throw new Error("Không tìm thấy project đang mở.");
+  const sequence = await project.getActiveSequence();
+  if (!sequence) throw new Error("Không có sequence active.");
+  let name = null;
+  try { name = sequence.name || (await sequence.getName()); } catch {}
+  if (!name) throw new Error("Không đọc được tên sequence đang active.");
+  return name;
+}
+
 // ----------------------------------------------------------------------------
 // Workflow "Mic Check" — 1 lệnh gộp toàn bộ pipeline. Nhận cues.json đã chuẩn hoá sẵn từ
 // scripts/docx_to_mic_check.py (chạy ngoài Premiere, không tự parse docx trong plugin).
@@ -488,13 +534,11 @@ async function setActiveSequenceTool({ name }) {
 
 async function runMicCheckWorkflow({
   cuesJsonPath,
-  backgroundVideoPath,
-  srtPath,
-  imagesDir,
+  srtPaths = [],     // 0+ file .srt (1 file / cột phụ đề — vd _ID.srt, _EN.srt), khớp theo mã, không bắt buộc
+  videoPaths = [],   // 0+ file video khớp theo mã — MỖI video 1 track V riêng (V1, V2, ...), không đè lên nhau
+  imagesDir,         // thư mục ảnh nhân vật DÙNG CHUNG — quét ĐỆ QUY tìm ảnh theo tên Player
   sequenceName,
   orientation = "landscape",
-  imageVideoTrackIndex = 1,
-  backgroundVideoTrackIndex = 0,
   timebase = 60
 }, log) {
   if (!cuesJsonPath) throw new Error("Phải truyền cuesJsonPath.");
@@ -514,58 +558,82 @@ async function runMicCheckWorkflow({
   const seqResult = await createSequence({ name: sequenceName, timebase, frameWidth, frameHeight });
   await setActiveSequenceTool({ name: seqResult.name });
 
-  const dirNormalized = imagesDir.replace(/[\\/]+$/, "");
-  const uniqueImageNames = [...new Set(cues.map((c) => c.image).filter(Boolean))];
-  const imagePaths = uniqueImageNames.map((name) => `${dirNormalized}\\${name}`);
-  const allPaths = [
-    ...(backgroundVideoPath ? [backgroundVideoPath] : []),
-    ...(srtPath ? [srtPath] : []),
-    ...imagePaths
-  ];
+  // Ảnh nhân vật lấy theo tên Player, tìm ĐỆ QUY trong imagesDir (thư mục dùng chung nhiều dự án,
+  // không cần nằm cùng chỗ với cues.json/srt/video nữa) — 1 lần quét chung cho toàn bộ cue.
+  if (log) log(`Dò thư mục ảnh "${imagesDir}"...`);
+  const imageIndex = await buildImageIndex(imagesDir);
 
+  const uniquePlayers = [...new Set(cues.map((c) => c.image).filter(Boolean))];
+  const resolvedImagePaths = new Map(); // player (nguyên văn) -> đường dẫn ảnh thật
+  const missingPlayers = [];
+  for (const player of uniquePlayers) {
+    const found = imageIndex.get(player.toLowerCase());
+    if (found) resolvedImagePaths.set(player, found);
+    else missingPlayers.push(player);
+  }
+  if (missingPlayers.length > 0 && log) {
+    log(`⚠️ Không tìm thấy ảnh cho ${missingPlayers.length} player: ${missingPlayers.join(", ")} — các cue này sẽ bị bỏ qua.`);
+  }
+
+  const allPaths = [
+    ...videoPaths,
+    ...srtPaths,
+    ...[...resolvedImagePaths.values()]
+  ];
   if (log) log(`Import ${allPaths.length} file media...`);
   const importResult = await importFilesToProject({ paths: allPaths });
 
-  let backgroundResult = null;
-  if (backgroundVideoPath) {
-    const bgName = backgroundVideoPath.split(/[\\/]/).pop();
-    if (log) log(`Đặt video nền "${bgName}"...`);
-    backgroundResult = await insertOrOverwriteClip({
-      itemName: bgName,
-      startSeconds: 0,
-      videoTrackIndex: backgroundVideoTrackIndex,
-      mode: "overwrite"
-    }, log);
+  // Mỗi video khớp mã đi lên 1 track riêng (V1, V2, ...) để không đè/trồng chéo nếu 1 mã khớp nhiều
+  // video (vd nhiều góc quay). Ảnh nhân vật luôn đặt ở track NGAY SAU toàn bộ video đã đặt.
+  const videoResults = [];
+  for (let i = 0; i < videoPaths.length; i++) {
+    const vName = videoPaths[i].split(/[\\/]/).pop();
+    if (log) log(`Đặt video "${vName}" vào track V${i + 1}...`);
+    try {
+      const r = await insertOrOverwriteClip({
+        itemName: vName,
+        startSeconds: 0,
+        videoTrackIndex: i,
+        audioTrackIndex: i, // mỗi video 1 track audio riêng luôn, tránh chồng tiếng nếu nhiều video có audio
+        mode: "overwrite"
+      }, log);
+      videoResults.push({ path: videoPaths[i], name: vName, track: i, ...r });
+    } catch (e) {
+      videoResults.push({ path: videoPaths[i], name: vName, track: i, error: String(e && e.message || e) });
+    }
   }
+  const imageVideoTrackIndex = videoPaths.length; // track kế tiếp sau hết video
 
   const placements = cues
-    .filter((c) => c.image)
+    .filter((c) => c.image && resolvedImagePaths.has(c.image))
     .map((c) => ({
-      itemName: c.image,
+      // itemName PHẢI là tên file THẬT (có đuôi, vd "FL.ABCD.png") vì đó là tên project item trong
+      // Premiere — c.image chỉ là tên Player thô (không đuôi), không dùng trực tiếp để tìm item được.
+      itemName: resolvedImagePaths.get(c.image).split(/[\\/]/).pop(),
       startSeconds: c.start,
       durationSeconds: c.end - c.start,
       videoTrackIndex: imageVideoTrackIndex,
       mode: "overwrite"
     }));
-  if (log) log(`Đặt ${placements.length} ảnh theo cues...`);
+  if (log) log(`Đặt ${placements.length} ảnh theo cues (track V${imageVideoTrackIndex + 1})...`);
   const placeResult = await batchPlaceClips({ placements }, log);
-
-  const captionCues = cues.filter((c) => c.text).length;
+  placeResult.missingPlayers = missingPlayers;
 
   return {
     sequenceName: seqResult.name,
     timebaseApplied: seqResult.timebaseApplied,
     actualFps: seqResult.actualFps,
     importedFiles: importResult.imported.length,
-    background: backgroundResult,
+    videos: videoResults,
+    imageVideoTrackIndex,
     images: placeResult,
     totalCues: cues.length,
-    captionCuesAvailable: captionCues,
-    srtImported: !!srtPath,
-    nextStep: srtPath
-      ? "File SRT đã được import vào Project panel. Kéo nó từ Project panel vào 1 caption track trên " +
-        "timeline (đảm bảo không còn caption track cũ nào trước đó, nếu không Premiere có thể giữ track " +
-        "cũ thay vì dùng SRT mới) — bước duy nhất chưa tự động hoá được, giới hạn thật của Premiere UXP."
+    srtImported: srtPaths.length,
+    nextStep: srtPaths.length > 0
+      ? `${srtPaths.length} file SRT đã được import vào Project panel. Kéo từng file từ Project panel vào ` +
+        "1 caption track riêng trên timeline (đảm bảo không còn caption track cũ nào trước đó, nếu không " +
+        "Premiere có thể giữ track cũ thay vì dùng SRT mới) — bước duy nhất chưa tự động hoá được, giới hạn " +
+        "thật của Premiere UXP."
       : "Không có file SRT nào được truyền vào — nếu có caption, hãy tự import + kéo file SRT vào 1 " +
         "caption track trên timeline."
   };
@@ -574,7 +642,7 @@ async function runMicCheckWorkflow({
 // Đối chiếu lại timeline (sequence đang active) với cues.json. Chỉ verify được clip ảnh trên video
 // track (name/start/end) — KHÔNG verify được nội dung text caption (CaptionTrackItem không có API
 // đọc text), chỉ đếm được số lượng item.
-async function verifyMicCheckWorkflow({ cuesJsonPath, imageVideoTrackIndex = 1 }) {
+async function verifyMicCheckWorkflow({ cuesJsonPath, imageVideoTrackIndex = 0, imagesDir }) {
   if (!cuesJsonPath) throw new Error("Phải truyền cuesJsonPath.");
   const project = await ppro.Project.getActiveProject();
   if (!project) throw new Error("Không tìm thấy project đang mở.");
@@ -585,7 +653,15 @@ async function verifyMicCheckWorkflow({ cuesJsonPath, imageVideoTrackIndex = 1 }
   let cuesData;
   try { cuesData = JSON.parse(cuesRaw); } catch (e) { throw new Error(`Không parse được "${cuesJsonPath}": ${e.message}`); }
   const allCues = cuesData.cues || [];
-  const imageCues = allCues.filter((c) => c.image);
+
+  // Nếu có truyền imagesDir, dò lại đúng bộ ảnh THẬT SỰ tìm thấy (giống lúc chạy Mic Check) — cue
+  // nào thiếu ảnh lúc chạy sẽ bị bỏ qua khi đặt, nên cũng phải bỏ qua khi verify để không báo nhầm
+  // "thiếu clip trên timeline".
+  let imageCues = allCues.filter((c) => c.image);
+  if (imagesDir) {
+    const imageIndex = await buildImageIndex(imagesDir);
+    imageCues = imageCues.filter((c) => imageIndex.has(c.image.toLowerCase()));
+  }
 
   const track = await sequence.getVideoTrack(imageVideoTrackIndex);
   const items = await track.getTrackItems(ppro.Constants.TrackItemType.CLIP, false);
@@ -611,7 +687,9 @@ async function verifyMicCheckWorkflow({ cuesJsonPath, imageVideoTrackIndex = 1 }
       mismatches.push({ index: i, issue: "Thiếu clip trên timeline", expected });
       continue;
     }
-    const nameOk = real.name === expected.image;
+    // expected.image là tên Player thô (không đuôi file), real.name là tên project item THẬT (có
+    // đuôi, vd "FL.ABCD.png") — so sánh kiểu "bắt đầu bằng", không so bằng tuyệt đối.
+    const nameOk = real.name && real.name.toLowerCase().startsWith(expected.image.toLowerCase());
     const startOk = Math.abs(real.start - expected.start) < 0.05;
     const endOk = Math.abs(real.end - expected.end) < 0.05;
     if (!nameOk || !startOk || !endOk) {
@@ -629,7 +707,7 @@ async function verifyMicCheckWorkflow({ cuesJsonPath, imageVideoTrackIndex = 1 }
       captionItemCount = citems.length;
     }
   } catch {}
-  const captionCuesExpected = allCues.filter((c) => c.text).length;
+  const captionCuesExpected = allCues.filter((c) => c.texts && Object.values(c.texts).some((t) => t)).length;
 
   return {
     imageCuesExpected: imageCues.length,

@@ -1,28 +1,33 @@
 #!/usr/bin/env python3
 """
-docx_to_mic_check.py — Đọc bảng "Time Stamp | Player | EN" trong file .docx/.csv/.xlsx (mẫu Mic
-Check) và xuất RA CẢ 2 FILE: cues.json (dùng cho run_mic_check_workflow) và .srt (kéo vào caption
-track).
+docx_to_mic_check.py — Đọc bảng "Time Stamp | Player | <1 hoặc nhiều cột phụ đề>" trong file
+.docx/.csv/.xlsx (mẫu Mic Check) và xuất ra: cues.json (dùng cho run_mic_check_workflow) + 1 file
+.srt cho MỖI cột phụ đề tìm thấy (vd "ID"/"EN"/"VN"/"TH"... — tên cột nào cũng được, không hardcode).
 
-Ảnh nhân vật được xác định TRỰC TIẾP theo cột "Player" (vd "FL.ABCD" → tìm file "FL.ABCD.png" cùng
-thư mục) — không cần cột "Ảnh" riêng nữa, tận dụng luôn dữ liệu Player sẵn có trong bảng gốc.
+Ảnh nhân vật KHÔNG được resolve ở đây nữa — chỉ ghi lại tên Player thô vào cues.json, việc tìm file
+ảnh thật (kể cả tìm đệ quy trong thư mục ảnh dùng chung nhiều thư mục con) do plugin UXP làm ở
+Premiere, vì giờ thư mục ảnh nhân vật là 1 thư mục RIÊNG dùng chung cho nhiều dự án, không còn nằm
+cùng thư mục với file dữ liệu nữa.
 
-Xuất cả 2 từ CÙNG 1 nguồn dữ liệu (bảng) — đảm bảo SRT và JSON luôn khớp nhau tuyệt đối, không cần
-chuẩn bị .srt riêng nữa. Dùng python-docx đọc trực tiếp qua Table API cho .docx (không regex/XML
-thô), module csv chuẩn cho .csv, và openpyxl cho .xlsx (data_only=True lấy giá trị công thức đã
-tính, không lấy công thức thô) — bền hơn vì đọc đúng theo cấu trúc cell/dòng thật, không phụ thuộc
-giả định thứ tự dòng.
+Tên các file .srt xuất ra luôn có hậu tố tên cột (vd "<tên file>_ID.srt", "<tên file>_EN.srt") kể cả
+khi bảng chỉ có 1 cột phụ đề — nhất quán, dễ dò tìm bằng script khác, không cần đoán quy ước.
+
+Xuất tất cả từ CÙNG 1 nguồn dữ liệu (bảng) — đảm bảo SRT và JSON luôn khớp nhau tuyệt đối. Dùng
+python-docx đọc trực tiếp qua Table API cho .docx (không regex/XML thô), module csv chuẩn cho .csv,
+và openpyxl cho .xlsx (data_only=True lấy giá trị công thức đã tính) — bền hơn vì đọc đúng theo cấu
+trúc cell/dòng thật, không phụ thuộc giả định thứ tự dòng.
 
 Chạy NGOÀI Premiere (Python thuần) — không phụ thuộc UXP, không cần Claude cho các lần chạy lại.
 
 Usage (2 cách, cùng 1 script):
     1) Kéo-thả: kéo file .docx/.csv/.xlsx tha thang vao Chuyen_Doi_File_Mic_Check.exe (hoac file
-       .py neu chay qua python) — tu suy ra --images/--out-dir la thu muc chua file do do.
+       .py neu chay qua python) — tu suy ra --out-dir la thu muc chua file do do.
            Chuyen_Doi_File_Mic_Check.exe "duong/dan/file.docx"
-    2) Dong lenh, tuy chinh thu muc anh/xuat rieng:
-           python docx_to_mic_check.py --input <path.docx|path.csv|path.xlsx> --images <thư mục ảnh> --out-dir <thư mục xuất>
+    2) Dong lenh, tuy chinh thu muc xuat rieng:
+           python docx_to_mic_check.py --input <path.docx|path.csv|path.xlsx> --out-dir <thư mục xuất>
 
-Số lượng cue KHÔNG hardcode — script tự đọc bất kỳ số dòng nào có trong bảng/file.
+Số lượng cue KHÔNG hardcode — script tự đọc bất kỳ số dòng nào có trong bảng/file. Số lượng cột phụ
+đề cũng KHÔNG hardcode — script tự nhận diện mọi cột header ngoài "Time Stamp"/"Player".
 """
 
 import argparse
@@ -44,13 +49,19 @@ for _stream in (sys.stdout, sys.stderr):
 from docx import Document
 from openpyxl import load_workbook
 
-TIMESTAMP_RE = re.compile(r"(\d+):(\d+):(\d+)[,.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,.](\d+)")
+# Chấp nhận cả "-->" (kiểu SRT chuẩn) lẫn "→" (mũi tên Unicode U+2192 — gặp thật trong file export từ
+# Google Sheets của user, 2026-09-11).
+TIMESTAMP_RE = re.compile(r"(\d+):(\d+):(\d+)[,.](\d+)\s*(?:-->|→)\s*(\d+):(\d+):(\d+)[,.](\d+)")
 
 SUPPORTED_EXTENSIONS = (".docx", ".csv", ".xlsx")
 
-# Ký tự Windows cấm dùng trong tên file — chỉ để phòng hờ Player có ký tự lạ, không đổi tên bình
-# thường (vd "FL.ABCD" giữ nguyên, dấu chấm hợp lệ trong filename).
+# Ký tự Windows cấm dùng trong tên file — dùng cho cả tên ảnh (Player) lẫn hậu tố tên cột trong tên
+# file .srt.
 _INVALID_FILENAME_CHARS_RE = re.compile(r'[<>:"/\\|?*]')
+
+
+def sanitize_filename_component(text: str) -> str:
+    return _INVALID_FILENAME_CHARS_RE.sub("_", text).strip()
 
 
 def to_seconds(h, m, s, ms):
@@ -100,43 +111,86 @@ def load_rows(path: Path):
 
 
 def find_header_row(rows):
-    """Tìm dòng header theo NỘI DUNG cell (không hardcode chỉ số dòng), rồi trả về chỉ số dòng +
-    mapping tên cột -> chỉ số cột. Bền hơn nếu cấu trúc bảng có thêm/bớt dòng trang trí phía trên.
-    Chỉ cần 3 cột "Time Stamp"/"Player"/"EN" — không còn yêu cầu cột "Ảnh" (ảnh giờ lấy trực tiếp
-    theo giá trị cột Player)."""
-    wanted = {"time stamp": "timestamp", "player": "player", "en": "text"}
+    """Tìm dòng header theo NỘI DUNG cell (không hardcode chỉ số dòng), rồi trả về:
+    - row_idx: chỉ số dòng header
+    - col_map: {"timestamp": idx, "player": idx} — 2 cột BẮT BUỘC
+    - text_columns: {label: idx} — các cột phụ đề thật sự, theo đúng tên cột (vd "EN", "ID", "VN",
+      "TH"...) — mỗi cột này sẽ sinh ra 1 file .srt riêng. Không hardcode số lượng hay tên cột.
+
+    Nếu ngay dưới dòng header có 1 "dòng đánh dấu kiểu cột" (mỗi ô ngoài Time Stamp/Player đều là
+    rỗng hoặc chữ "Text", và ô Time Stamp không phải định dạng giờ thật) thì CHỈ những cột được đánh
+    dấu "Text" mới được coi là cột phụ đề — cách này lọc bỏ được cột thừa không phải phụ đề (vd cột
+    "Ảnh" còn sót lại từ mẫu bảng cũ trước khi đổi sang lấy ảnh theo Player). Nếu không có dòng đánh
+    dấu này thì fallback: MỌI cột khác ngoài Time Stamp/Player đều được coi là cột phụ đề.
+
+    Bền hơn nếu cấu trúc bảng có thêm/bớt dòng trang trí phía trên."""
+    required = {"time stamp": "timestamp", "player": "player"}
     for row_idx, row in enumerate(rows):
         cells_lower = [c.lower() for c in row]
         col_map = {}
         for idx, cell_text in enumerate(cells_lower):
-            for key, field in wanted.items():
+            for key, field in required.items():
                 if cell_text == key:
                     col_map[field] = idx
-        if len(col_map) == len(wanted):
-            return row_idx, col_map
-    raise ValueError(
-        'Không tìm thấy dòng header có đủ 3 cột "Time Stamp"/"Player"/"EN" trong bảng.'
-    )
+        if len(col_map) != len(required):
+            continue
+
+        used_idx = set(col_map.values())
+        candidate_columns = {}
+        for idx, cell_text in enumerate(row):
+            if idx in used_idx:
+                continue
+            label = cell_text.strip()
+            if label:
+                candidate_columns[label] = idx
+
+        if not candidate_columns:
+            raise ValueError(
+                'Bảng có đủ cột "Time Stamp"/"Player" nhưng không thấy cột phụ đề nào khác '
+                '(vd "EN") — cần ít nhất 1 cột phụ đề ngoài 2 cột đó.'
+            )
+
+        text_columns = candidate_columns
+        marker_row = rows[row_idx + 1] if row_idx + 1 < len(rows) else None
+        if marker_row is not None:
+            marker_ts = marker_row[col_map["timestamp"]] if len(marker_row) > col_map["timestamp"] else ""
+            looks_like_marker = not TIMESTAMP_RE.match(marker_ts)
+            marked_columns = {}
+            for label, idx in candidate_columns.items():
+                cell = marker_row[idx].strip().lower() if len(marker_row) > idx else ""
+                if cell not in ("", "text"):
+                    looks_like_marker = False
+                    break
+                if cell == "text":
+                    marked_columns[label] = idx
+            if looks_like_marker and marked_columns:
+                text_columns = marked_columns
+
+        return row_idx, col_map, text_columns
+
+    raise ValueError('Không tìm thấy dòng header có đủ 2 cột "Time Stamp"/"Player" trong bảng.')
 
 
 def parse_cues(path: Path):
     rows = load_rows(path)
-    header_idx, col_map = find_header_row(rows)
+    header_idx, col_map, text_columns = find_header_row(rows)
+    # Giữ đúng thứ tự cột trái->phải như trong bảng gốc, để thứ tự file .srt xuất ra dễ đoán.
+    text_labels = sorted(text_columns.keys(), key=lambda label: text_columns[label])
 
     cues = []
     rejected_timestamps = []  # để báo lỗi rõ nếu cuối cùng không ra cue nào nhưng có dòng có vẻ là dữ liệu
-    max_col = max(col_map.values())
+    max_col = max(list(col_map.values()) + list(text_columns.values()))
     for row in rows[header_idx + 1:]:
         if len(row) <= max_col:
-            continue  # dòng thiếu cột (vd dòng trống cuối file CSV) — bỏ qua, không phải lỗi
+            continue  # dòng thiếu cột (vd dòng trống cuối file CSV/xlsx) — bỏ qua, không phải lỗi
 
         ts_text = row[col_map["timestamp"]]
         m = TIMESTAMP_RE.match(ts_text)
         if not m:
             if ts_text:
-                # dòng có nội dung nhưng không khớp định dạng — có thể là dòng trang trí (vd tiêu đề
-                # "Text"), nhưng cũng có thể là timestamp gõ sai định dạng, nên lưu lại vài ví dụ đầu
-                # tiên để báo lỗi rõ hơn nếu cuối cùng parse ra 0 cue.
+                # dòng có nội dung nhưng không khớp định dạng — có thể là dòng trang trí (vd dòng
+                # đánh dấu kiểu cột "Text"/"Text"), nhưng cũng có thể là timestamp gõ sai định dạng,
+                # nên lưu lại vài ví dụ đầu tiên để báo lỗi rõ hơn nếu cuối cùng parse ra 0 cue.
                 if len(rejected_timestamps) < 5:
                     rejected_timestamps.append(ts_text)
             continue  # dòng trang trí/rỗng — bỏ qua, không phải lỗi (trừ khi không ra cue nào ở cuối)
@@ -146,16 +200,16 @@ def parse_cues(path: Path):
         if start >= end:
             raise ValueError(f'Cue "{ts_text}": start phải nhỏ hơn end.')
 
-        text = row[col_map["text"]]
         player = row[col_map["player"]]
+        texts = {label: row[text_columns[label]] for label in text_labels}
 
         cues.append({
             "index": len(cues),
             "start": round(start, 3),
             "end": round(end, 3),
-            "text": text,
             "player": player or None,
-            "image": player or None,  # ảnh = tên Player, xem validate_images()/image_label_to_candidates()
+            "image": player or None,  # tên ảnh cần tìm — plugin UXP tự tìm file thật, xem README
+            "texts": texts,
         })
 
     if not cues:
@@ -171,53 +225,7 @@ def parse_cues(path: Path):
             "Parse xong nhưng không ra cue nào — cột \"Time Stamp\" trống ở mọi dòng dữ liệu, "
             "kiểm tra lại nội dung bảng."
         )
-    return cues
-
-
-def image_label_to_candidates(label: str):
-    # Ảnh = tên Player nguyên văn (vd "FL.ABCD" -> "FL.ABCD.png") — chỉ lọc bớt ký tự Windows cấm
-    # dùng trong tên file, không đổi case/format gì khác để giữ đúng tên tuyển thủ.
-    base = _INVALID_FILENAME_CHARS_RE.sub("_", label).strip()
-    return [base + ext for ext in (".png", ".jpg", ".jpeg")]
-
-
-def validate_images(cues, images_dir: Path):
-    if not images_dir.is_dir():
-        raise ValueError(f'Thư mục ảnh không tồn tại: "{images_dir}"')
-
-    files_on_disk = list(images_dir.iterdir())
-    files_lower = {f.name.lower(): f.name for f in files_on_disk if f.is_file()}
-
-    unique_labels = sorted({c["image"] for c in cues if c["image"]})
-    missing = []
-    resolved = {}
-
-    for label in unique_labels:
-        candidates = image_label_to_candidates(label)
-        found = next((c for c in candidates if c.lower() in files_lower), None)
-        if found:
-            resolved[label] = files_lower[found.lower()]
-        else:
-            missing.append((label, candidates))
-
-    if missing:
-        lines = [
-            f'  - Player "{label}" nhưng không thấy file ảnh nào trong {candidates}'
-            for label, candidates in missing
-        ]
-        raise ValueError(
-            f'Thiếu {len(missing)} ảnh (đặt tên theo Player) trong "{images_dir}":\n' + "\n".join(lines)
-        )
-
-    used = {name.lower() for name in resolved.values()}
-    unused = [
-        f.name for f in files_on_disk
-        if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg") and f.name.lower() not in used
-    ]
-    if unused:
-        print(f"⚠️  Cảnh báo: {len(unused)} ảnh trong thư mục không được nhắc tới (không chặn): {unused}", file=sys.stderr)
-
-    return resolved
+    return cues, text_labels
 
 
 def format_srt_timestamp(seconds: float) -> str:
@@ -228,18 +236,23 @@ def format_srt_timestamp(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
-def write_srt(cues, srt_path: Path):
+def write_srt_for_column(cues, label: str, srt_path: Path) -> int:
+    """Ghi 1 file .srt cho đúng 1 cột phụ đề (label). Trả về số dòng phụ đề đã ghi."""
     lines = []
+    count = 0
     for i, cue in enumerate(cues, start=1):
-        if not cue["text"]:
+        text = (cue["texts"].get(label) or "").strip()
+        if not text:
             continue
         lines.append(str(i))
         lines.append(f'{format_srt_timestamp(cue["start"])} --> {format_srt_timestamp(cue["end"])}')
-        lines.append(cue["text"])
+        lines.append(text)
         lines.append("")
+        count += 1
     # newline="\n" ép LF thuần — mặc định Python trên Windows tự dịch "\n" thành "\r\n" khi ghi text
     # mode, làm SRT xuất ra khác byte-cho-byte so với file gốc dù nội dung giống hệt.
     srt_path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    return count
 
 
 BANNER = (
@@ -263,10 +276,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "input_dropped", nargs="?", type=Path,
-        help="(chế độ kéo-thả) đường dẫn file .docx/.csv — tự suy ra --images/--out-dir là thư mục chứa nó",
+        help="(chế độ kéo-thả) đường dẫn file .docx/.csv/.xlsx — tự suy ra --out-dir là thư mục chứa nó",
     )
     ap.add_argument("--input", type=Path)
-    ap.add_argument("--images", type=Path)
     ap.add_argument("--out-dir", type=Path)
     args = ap.parse_args()
 
@@ -288,22 +300,15 @@ def main():
         _pause_if_interactive()
         sys.exit(1)
 
-    images_dir = args.images or input_path.parent
     out_dir = args.out_dir or input_path.parent
 
     print(f"File du lieu : {input_path}")
-    print(f"Thu muc      : {images_dir}\n")
+    print(f"Thu muc xuat : {out_dir}\n")
 
     try:
         print(f"Đọc: {input_path}")
-        cues = parse_cues(input_path)
-        print(f"Parse được {len(cues)} cue.")
-
-        print(f"Validate ảnh trong: {images_dir}")
-        resolved_images = validate_images(cues, images_dir)
-        for cue in cues:
-            if cue["image"]:
-                cue["image"] = resolved_images[cue["image"]]
+        cues, text_labels = parse_cues(input_path)
+        print(f"Parse được {len(cues)} cue, {len(text_labels)} cột phụ đề: {', '.join(text_labels)}")
 
         out_dir.mkdir(parents=True, exist_ok=True)
         stem = input_path.stem
@@ -312,16 +317,19 @@ def main():
         output = {
             "sourceFile": input_path.name,
             "cueCount": len(cues),
+            "subtitleColumns": text_labels,
             "cues": cues,
         }
         json_path.write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n")
-
-        srt_path = out_dir / f"{stem}.srt"
-        write_srt(cues, srt_path)
-
         print(f"✅ Đã ghi {json_path}")
-        print(f"✅ Đã ghi {srt_path} ({len(resolved_images)} ảnh khác nhau)")
-        print(f'\n✅ Xong! Mo panel "Mic Check" trong Premiere, bam "Chon" chon dung thu muc:\n   {out_dir}')
+
+        for label in text_labels:
+            suffix = sanitize_filename_component(label)
+            srt_path = out_dir / f"{stem}_{suffix}.srt"
+            count = write_srt_for_column(cues, label, srt_path)
+            print(f"✅ Đã ghi {srt_path} ({count} dòng phụ đề)")
+
+        print(f'\n✅ Xong! Mo panel "Mic Check" trong Premiere, bam "Chon" chon dung thu muc du lieu:\n   {out_dir}')
     except Exception as e:
         print(f"\n❌ Co loi xay ra: {e}")
         _pause_if_interactive()

@@ -30,7 +30,7 @@
 
   .actions { display: flex; gap: 6px; margin-top: 6px; }
 
-  .detected { background: #232326; border-radius: 3px; padding: 6px 8px; margin-bottom: 6px; font-size: 10px; color: #aaa; }
+  .detected { background: #232326; border-radius: 3px; padding: 6px 8px; margin-bottom: 6px; font-size: 10px; color: #aaa; max-height: 140px; overflow-y: auto; }
   .detected-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
   .detected-row:last-child { margin-bottom: 0; }
   .detected-icon { width: 14px; flex-shrink: 0; text-align: center; }
@@ -50,14 +50,19 @@
     <h4>Mic Check</h4>
     <div class="body">
       <div class="row">
-        <label>Thư mục dự án</label>
+        <label>Thư mục ảnh</label>
+        <span class="val" id="mcImagesPath">(chưa chọn)</span>
+        <button id="mcPickImages">Chọn</button>
+      </div>
+      <div class="row">
+        <label>Thư mục dữ liệu</label>
         <span class="val" id="mcFolderPath">(chưa chọn)</span>
         <button id="mcPickFolder">Chọn</button>
       </div>
       <div id="mcDetected" class="detected"></div>
       <div class="row">
-        <label>Tên sequence</label>
-        <input type="text" id="mcSequenceName" placeholder="vd: FFWS Week2">
+        <label>Mã (; nếu nhiều)</label>
+        <input type="text" id="mcCodes" placeholder="vd: VN-FL-D3-G2; VN-FL-D3-G1">
       </div>
       <div class="row">
         <label>Hướng khung hình</label>

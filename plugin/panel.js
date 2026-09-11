@@ -4,6 +4,7 @@
 (function () {
   const uxpFsPanel = require("uxp").storage.localFileSystem;
   const VIDEO_EXT = [".mp4", ".mov", ".mxf", ".avi"];
+  const IMAGES_DIR_STORAGE_KEY = "micCheckImagesDir";
 
   function $(id) { return document.getElementById(id); }
 
@@ -26,34 +27,51 @@
   // Mic Check
   // --------------------------------------------------------------------------
   let mcState = {
-    folderPath: null,
-    cuesCandidates: [],
-    videoCandidates: [],
+    imagesDirPath: null,
+    dataDirPath: null,
+    cuesCandidates: [],  // {name, nativePath}
     srtCandidates: [],
-    selectedCuesPath: null,
-    selectedVideoPath: null,
-    selectedSrtPath: null
+    videoCandidates: []
   };
 
-  function updateMcRunEnabled() {
-    const canRun = !!(mcState.selectedCuesPath && mcState.folderPath && $("mcSequenceName").value.trim());
+  // Thư mục ảnh dùng chung nhiều dự án — nhớ lại lần chọn gần nhất để khỏi phải chọn lại mỗi lần.
+  try {
+    const saved = localStorage.getItem(IMAGES_DIR_STORAGE_KEY);
+    if (saved) {
+      mcState.imagesDirPath = saved;
+      $("mcImagesPath").textContent = shortenPath(saved);
+      $("mcImagesPath").title = saved;
+    }
+  } catch {}
+
+  function updateButtonsEnabled() {
+    const canRun = !!(mcState.imagesDirPath && mcState.dataDirPath && mcState.cuesCandidates.length > 0);
     $("mcRunBtn").disabled = !canRun;
-    $("mcVerifyBtn").disabled = !mcState.selectedCuesPath;
+    $("mcVerifyBtn").disabled = !(mcState.imagesDirPath && mcState.dataDirPath && mcState.cuesCandidates.length > 0);
   }
 
-  function baseName(nativePath) {
-    return nativePath.split(/[\\/]/).pop();
-  }
+  $("mcPickImages").addEventListener("click", async () => {
+    let folderEntry;
+    try {
+      folderEntry = await uxpFsPanel.getFolder();
+    } catch (e) {
+      logLine(`Lỗi chọn thư mục ảnh: ${e.message}`);
+      return;
+    }
+    if (!folderEntry) return;
+    mcState.imagesDirPath = folderEntry.nativePath;
+    $("mcImagesPath").textContent = shortenPath(mcState.imagesDirPath);
+    $("mcImagesPath").title = mcState.imagesDirPath;
+    try { localStorage.setItem(IMAGES_DIR_STORAGE_KEY, mcState.imagesDirPath); } catch {}
+    logLine(`Đã chọn thư mục ảnh (dùng chung): ${mcState.imagesDirPath}`);
+    updateButtonsEnabled();
+  });
 
-  function suggestSequenceName(cuesFileName) {
-    return cuesFileName.replace(/\.cues\.json$/i, "").replace(/[_-]+/g, " ").trim();
-  }
-
-  async function scanFolder(folderEntry) {
+  async function scanDataFolder(folderEntry) {
     const entries = await folderEntry.getEntries();
     const cuesCandidates = [];
-    const videoCandidates = [];
     const srtCandidates = [];
+    const videoCandidates = [];
     for (const e of entries) {
       if (!e.isFile) continue;
       const name = e.name;
@@ -65,80 +83,24 @@
         videoCandidates.push({ name, nativePath: e.nativePath });
       }
     }
-    return { cuesCandidates, videoCandidates, srtCandidates };
+    return { cuesCandidates, srtCandidates, videoCandidates };
   }
 
   function renderDetected() {
     const el = $("mcDetected");
     const rows = [];
-
-    if (mcState.cuesCandidates.length === 0) {
-      rows.push(`<div class="detected-row"><span class="detected-icon err">✕</span>
-        <span>Không thấy file *.cues.json — kéo file .docx/.csv/.xlsx vào scripts/Chuyen_Doi_File_Mic_Check.exe trước.</span></div>`);
-    } else if (mcState.cuesCandidates.length === 1) {
-      rows.push(`<div class="detected-row"><span class="detected-icon ok">✓</span>
-        <span>cues.json: ${mcState.cuesCandidates[0].name}</span></div>`);
-    } else {
-      rows.push(`<div class="detected-row"><span class="detected-icon warn">?</span>
-        <span>${mcState.cuesCandidates.length} file cues.json — chọn 1:</span></div>
-        <div class="detected-row"><select id="mcCuesSelect" style="flex:1">
-          ${mcState.cuesCandidates.map((c, i) => `<option value="${i}">${c.name}</option>`).join("")}
-        </select></div>`);
+    const c = mcState.cuesCandidates.length;
+    const s = mcState.srtCandidates.length;
+    const v = mcState.videoCandidates.length;
+    rows.push(`<div class="detected-row"><span class="detected-icon ${c ? "ok" : "err"}">${c ? "✓" : "✕"}</span>
+      <span>${c} file cues.json, ${s} file .srt, ${v} file video trong thư mục.</span></div>`);
+    if (c > 1) {
+      const shown = mcState.cuesCandidates.slice(0, 15).map((f) => "• " + f.name.replace(/\.cues\.json$/i, ""));
+      const more = c > 15 ? `<br>... và ${c - 15} file khác` : "";
+      rows.push(`<div class="detected-row" style="align-items:flex-start"><span class="detected-icon warn">?</span>
+        <span style="white-space:normal">Nhiều file — nhập Mã để chọn đúng:<br>${shown.join("<br>")}${more}</span></div>`);
     }
-
-    if (mcState.srtCandidates.length === 0) {
-      rows.push(`<div class="detected-row"><span class="detected-icon warn">–</span>
-        <span>Không thấy file .srt (tuỳ chọn — chỉ cần nếu muốn caption).</span></div>`);
-    } else if (mcState.srtCandidates.length === 1) {
-      rows.push(`<div class="detected-row"><span class="detected-icon ok">✓</span>
-        <span>SRT: ${mcState.srtCandidates[0].name} (sẽ tự import vào Project panel)</span></div>`);
-    } else {
-      rows.push(`<div class="detected-row"><span class="detected-icon warn">?</span>
-        <span>${mcState.srtCandidates.length} file .srt — chọn 1 (hoặc để trống):</span></div>
-        <div class="detected-row"><select id="mcSrtSelect" style="flex:1">
-          <option value="-1">(không dùng SRT)</option>
-          ${mcState.srtCandidates.map((c, i) => `<option value="${i}">${c.name}</option>`).join("")}
-        </select></div>`);
-    }
-
-    if (mcState.videoCandidates.length === 0) {
-      rows.push(`<div class="detected-row"><span class="detected-icon warn">–</span>
-        <span>Không thấy video nền (tuỳ chọn).</span></div>`);
-    } else if (mcState.videoCandidates.length === 1) {
-      rows.push(`<div class="detected-row"><span class="detected-icon ok">✓</span>
-        <span>Video nền: ${mcState.videoCandidates[0].name}</span></div>`);
-    } else {
-      rows.push(`<div class="detected-row"><span class="detected-icon warn">?</span>
-        <span>${mcState.videoCandidates.length} video — chọn 1 (hoặc để trống):</span></div>
-        <div class="detected-row"><select id="mcVideoSelect" style="flex:1">
-          <option value="-1">(không dùng video nền)</option>
-          ${mcState.videoCandidates.map((c, i) => `<option value="${i}">${c.name}</option>`).join("")}
-        </select></div>`);
-    }
-
     el.innerHTML = rows.join("");
-
-    const cuesSelect = $("mcCuesSelect");
-    if (cuesSelect) {
-      cuesSelect.addEventListener("change", () => {
-        mcState.selectedCuesPath = mcState.cuesCandidates[+cuesSelect.value].nativePath;
-        updateMcRunEnabled();
-      });
-    }
-    const videoSelect = $("mcVideoSelect");
-    if (videoSelect) {
-      videoSelect.addEventListener("change", () => {
-        const idx = +videoSelect.value;
-        mcState.selectedVideoPath = idx >= 0 ? mcState.videoCandidates[idx].nativePath : null;
-      });
-    }
-    const srtSelect = $("mcSrtSelect");
-    if (srtSelect) {
-      srtSelect.addEventListener("change", () => {
-        const idx = +srtSelect.value;
-        mcState.selectedSrtPath = idx >= 0 ? mcState.srtCandidates[idx].nativePath : null;
-      });
-    }
   }
 
   $("mcPickFolder").addEventListener("click", async () => {
@@ -146,70 +108,147 @@
     try {
       folderEntry = await uxpFsPanel.getFolder();
     } catch (e) {
-      logLine(`Lỗi chọn thư mục: ${e.message}`);
+      logLine(`Lỗi chọn thư mục dữ liệu: ${e.message}`);
       return;
     }
     if (!folderEntry) return;
 
-    mcState.folderPath = folderEntry.nativePath;
-    $("mcFolderPath").textContent = shortenPath(mcState.folderPath);
-    $("mcFolderPath").title = mcState.folderPath;
-    logLine(`Đã chọn thư mục: ${mcState.folderPath}`);
+    mcState.dataDirPath = folderEntry.nativePath;
+    $("mcFolderPath").textContent = shortenPath(mcState.dataDirPath);
+    $("mcFolderPath").title = mcState.dataDirPath;
+    logLine(`Đã chọn thư mục dữ liệu: ${mcState.dataDirPath}`);
 
-    const { cuesCandidates, videoCandidates, srtCandidates } = await scanFolder(folderEntry);
+    const { cuesCandidates, srtCandidates, videoCandidates } = await scanDataFolder(folderEntry);
     mcState.cuesCandidates = cuesCandidates;
-    mcState.videoCandidates = videoCandidates;
     mcState.srtCandidates = srtCandidates;
-    mcState.selectedCuesPath = cuesCandidates.length === 1 ? cuesCandidates[0].nativePath : null;
-    mcState.selectedVideoPath = videoCandidates.length === 1 ? videoCandidates[0].nativePath : null;
-    mcState.selectedSrtPath = srtCandidates.length === 1 ? srtCandidates[0].nativePath : null;
+    mcState.videoCandidates = videoCandidates;
 
     logLine(`Dò được: ${cuesCandidates.length} cues.json, ${srtCandidates.length} srt, ${videoCandidates.length} video.`);
     renderDetected();
-
-    if (mcState.selectedCuesPath && !$("mcSequenceName").value.trim()) {
-      $("mcSequenceName").value = suggestSequenceName(baseName(mcState.selectedCuesPath));
-    }
-    updateMcRunEnabled();
+    updateButtonsEnabled();
   });
 
-  $("mcSequenceName").addEventListener("input", updateMcRunEnabled);
+  function findByCode(list, code) {
+    const lower = code.toLowerCase();
+    return list.filter((f) => f.name.toLowerCase().includes(lower));
+  }
 
+  function findSrtForStem(stem) {
+    // SRT sinh ra CÙNG LÚC với cues.json từ cùng 1 file nguồn nên luôn có tiền tố "<stem>_"
+    // (vd "VNFLD3G2__Week_2_EN.srt" cho stem "VNFLD3G2__Week_2").
+    const prefix = (stem + "_").toLowerCase();
+    return mcState.srtCandidates.filter((f) => f.name.toLowerCase().startsWith(prefix));
+  }
+
+  // ------------------------------------------------------------------------
+  // Chạy Mic Check — theo Mã (1 hoặc nhiều, cách nhau ";"), mỗi file cues.json khớp mã tạo 1
+  // sequence riêng. Nếu bỏ trống ô Mã: chạy thẳng nếu thư mục chỉ có đúng 1 file cues.json.
+  // ------------------------------------------------------------------------
   $("mcRunBtn").addEventListener("click", async () => {
     $("mcRunBtn").disabled = true;
     $("mcVerifyBtn").disabled = true;
-    const sequenceName = $("mcSequenceName").value.trim();
     const orientation = $("mcOrientation").value;
-    logLine(`▶ Bắt đầu Mic Check: "${sequenceName}" (${orientation})...`);
-    try {
-      const result = await runMicCheckWorkflow({
-        cuesJsonPath: mcState.selectedCuesPath,
-        backgroundVideoPath: mcState.selectedVideoPath || undefined,
-        srtPath: mcState.selectedSrtPath || undefined,
-        imagesDir: mcState.folderPath,
-        sequenceName,
-        orientation
-      }, (msg) => logLine(msg));
+    const codesRaw = $("mcCodes").value.trim();
+    const codes = codesRaw ? codesRaw.split(";").map((c) => c.trim()).filter(Boolean) : [];
 
-      logLine(`✅ Xong. Sequence "${result.sequenceName}" (${result.actualFps}fps).`);
-      logLine(`   Ảnh: ${result.images.placed}/${result.images.total} đặt thành công.`);
-      if (result.images.failed.length > 0) {
-        logLine(`   ⚠️ ${result.images.failed.length} ảnh lỗi:`);
-        for (const f of result.images.failed) logLine(`     - index ${f.index} "${f.itemName}": ${f.error}`);
+    const runs = []; // { cuesFile, code }
+    const notFoundCodes = [];
+
+    if (codes.length > 0) {
+      for (const code of codes) {
+        const matches = findByCode(mcState.cuesCandidates, code);
+        if (matches.length === 0) { notFoundCodes.push(code); continue; }
+        for (const m of matches) runs.push({ cuesFile: m, code });
       }
-      logLine(`   ${result.nextStep}`);
-    } catch (e) {
-      logLine(`❌ Lỗi: ${e.message}`);
-    } finally {
-      updateMcRunEnabled();
+      if (runs.length === 0) {
+        logLine(`❌ Không tìm thấy file cues.json nào khớp mã: ${notFoundCodes.join(", ")}`);
+        updateButtonsEnabled();
+        return;
+      }
+    } else if (mcState.cuesCandidates.length === 1) {
+      runs.push({ cuesFile: mcState.cuesCandidates[0], code: null });
+    } else if (mcState.cuesCandidates.length === 0) {
+      logLine("❌ Không có file cues.json nào trong thư mục dữ liệu.");
+      updateButtonsEnabled();
+      return;
+    } else {
+      logLine(`❌ Có ${mcState.cuesCandidates.length} file cues.json trong thư mục — nhập Mã để chọn đúng file (cách nhau bằng ";" nếu chạy nhiều).`);
+      updateButtonsEnabled();
+      return;
     }
+
+    logLine(`▶ Sẽ chạy ${runs.length} sequence: ${runs.map((r) => r.cuesFile.name).join(", ")}`);
+    if (notFoundCodes.length > 0) logLine(`⚠️ Không tìm thấy file khớp các mã: ${notFoundCodes.join(", ")}`);
+
+    let successCount = 0;
+    for (const run of runs) {
+      const stem = run.cuesFile.name.replace(/\.cues\.json$/i, "");
+      const sequenceName = run.code || stem;
+      logLine(`\n=== ${sequenceName} (${run.cuesFile.name}) ===`);
+      try {
+        const srtFiles = findSrtForStem(stem).map((f) => f.nativePath);
+        const videoFiles = (run.code ? findByCode(mcState.videoCandidates, run.code) : []).map((f) => f.nativePath);
+        if (srtFiles.length > 0) logLine(`  SRT khớp: ${srtFiles.length} file.`);
+        if (videoFiles.length > 0) logLine(`  Video khớp: ${videoFiles.length} file (mỗi file 1 track V riêng).`);
+
+        const result = await runMicCheckWorkflow({
+          cuesJsonPath: run.cuesFile.nativePath,
+          srtPaths: srtFiles,
+          videoPaths: videoFiles,
+          imagesDir: mcState.imagesDirPath,
+          sequenceName,
+          orientation
+        }, (msg) => logLine("  " + msg));
+
+        logLine(`  ✅ "${result.sequenceName}" (${result.actualFps}fps) — ảnh: ${result.images.placed}/${result.totalCues}.`);
+        if (result.images.missingPlayers && result.images.missingPlayers.length > 0) {
+          logLine(`  ⚠️ Không tìm thấy ảnh cho: ${result.images.missingPlayers.join(", ")}`);
+        }
+        if (result.images.failed && result.images.failed.length > 0) {
+          logLine(`  ⚠️ ${result.images.failed.length} ảnh đặt lỗi vị trí.`);
+        }
+        logLine(`  ${result.nextStep}`);
+        successCount++;
+      } catch (e) {
+        logLine(`  ❌ Lỗi: ${e.message}`);
+      }
+    }
+
+    logLine(`\n== Tổng kết: ${successCount}/${runs.length} sequence tạo thành công. ==`);
+    if (notFoundCodes.length > 0) logLine(`Mã không tìm thấy file: ${notFoundCodes.join(", ")}`);
+
+    updateButtonsEnabled();
   });
 
+  // ------------------------------------------------------------------------
+  // Verify — luôn đối chiếu SEQUENCE ĐANG ACTIVE trong Premiere, tự suy ra đúng file cues.json theo
+  // tên sequence (vì 1 lần chạy có thể tạo nhiều sequence theo nhiều mã).
+  // ------------------------------------------------------------------------
   $("mcVerifyBtn").addEventListener("click", async () => {
     $("mcVerifyBtn").disabled = true;
-    logLine("🔍 Đang verify timeline so với cues.json...");
+    logLine("🔍 Đang verify sequence đang active...");
     try {
-      const result = await verifyMicCheckWorkflow({ cuesJsonPath: mcState.selectedCuesPath });
+      const activeName = await getActiveSequenceNameTool();
+      let match = mcState.cuesCandidates.find(
+        (f) => f.name.replace(/\.cues\.json$/i, "").toLowerCase() === activeName.toLowerCase()
+      );
+      if (!match) {
+        match = mcState.cuesCandidates.find((f) => f.name.toLowerCase().includes(activeName.toLowerCase()));
+      }
+      if (!match) {
+        logLine(`❌ Không tìm được file cues.json khớp với sequence đang active ("${activeName}"). Kiểm tra lại đã chọn đúng thư mục dữ liệu chưa.`);
+        return;
+      }
+      logLine(`Đối chiếu sequence "${activeName}" với: ${match.name}`);
+
+      // Suy lại số video đã dùng lúc chạy (cùng logic khớp mã) để biết đúng track ảnh nằm ở đâu.
+      const videoCount = findByCode(mcState.videoCandidates, activeName).length;
+
+      const result = await verifyMicCheckWorkflow({
+        cuesJsonPath: match.nativePath,
+        imagesDir: mcState.imagesDirPath,
+        imageVideoTrackIndex: videoCount
+      });
       logLine(`Ảnh: mong đợi ${result.imageCuesExpected}, tìm thấy ${result.imageClipsFound} trên timeline.`);
       if (result.allImagesOk) {
         logLine("✅ Tất cả ảnh khớp đúng vị trí + thời lượng.");
@@ -222,9 +261,9 @@
     } catch (e) {
       logLine(`❌ Lỗi verify: ${e.message}`);
     } finally {
-      updateMcRunEnabled();
+      updateButtonsEnabled();
     }
   });
 
-  updateMcRunEnabled();
+  updateButtonsEnabled();
 })();

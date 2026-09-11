@@ -1,6 +1,6 @@
 # Mic Check — Premiere Pro Plugin (Standalone)
 
-Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồm video nền + ảnh nhân vật + caption đồng bộ theo thời gian, từ một file `.docx`, `.csv`, hoặc `.xlsx` (bảng Time Stamp/Player/EN) và/hoặc SRT.
+Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồm video + ảnh nhân vật + phụ đề (1 hoặc nhiều ngôn ngữ) đồng bộ theo thời gian, từ một file `.docx`, `.csv`, hoặc `.xlsx` (bảng Time Stamp/Player/&lt;1+ cột phụ đề&gt;). Hỗ trợ chạy hàng loạt nhiều đội/nhiều trận trong 1 lần bằng cách nhập **mã** — không cần tách riêng từng thư mục cho từng dự án.
 
 **Không cần Claude, MCP, Node server hay mạng internet.** Plugin chạy hoàn toàn trong Premiere, chỉ đọc/ghi file cục bộ trên máy bạn.
 
@@ -34,54 +34,66 @@ Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồ
 4. Panel "Mic Check" xuất hiện trong Premiere: **Window → Extensions (Legacy/UXP) → Mic Check**, hoặc nó tự nổi lên nếu để chế độ floating.
 5. Bật **Watch** trên dòng plugin để Premiere tự reload mỗi khi sửa code — tiện khi đang phát triển.
 
+## Kiến trúc dữ liệu (quan trọng — đọc trước khi dùng)
+
+Từ bản này, dữ liệu được tách thành **2 thư mục riêng biệt**, chọn 1 lần và dùng chung cho mọi dự án:
+
+1. **Thư mục ảnh nhân vật** — 1 thư mục DÙNG CHUNG duy nhất, chứa toàn bộ ảnh mọi tuyển thủ của mọi đội (không cần tổ chức gọn gàng — plugin tự tìm ĐỆ QUY cả trong thư mục con). Mỗi ảnh đặt tên **trùng với giá trị cột Player** (vd Player ghi `FL.ABCD` thì cần file `FL.ABCD.png`/`.jpg`/`.jpeg` ở đâu đó trong thư mục này). Plugin nhớ lại thư mục này giữa các lần dùng, không cần chọn lại mỗi lần.
+2. **Thư mục dữ liệu** — nơi chứa các file `.cues.json`/`.srt`/video do converter sinh ra, có thể chứa LẪN LỘN nhiều đội/nhiều trận cùng lúc (không cần mỗi dự án 1 thư mục riêng nữa). Plugin dùng **Mã** (xem bên dưới) để chọn đúng bộ file cần chạy trong đống lẫn lộn đó.
+
+### Cơ chế "Mã" — chạy hàng loạt nhiều đội/nhiều trận
+
+Đặt tên file `.docx`/`.csv`/`.xlsx` nguồn với **tiền tố mã riêng biệt**, khuyên dùng **ít nhất 3 cụm cách nhau bằng dấu `-`** để tránh trùng lặp (vd `VN-WAG-D3-G2__Week_2.csv`, mã ở đây là `VN-WAG-D3-G2`). Converter sinh ra file giữ nguyên tên gốc (`VN-WAG-D3-G2__Week_2.cues.json`, `VN-WAG-D3-G2__Week_2_EN.srt`...) nên mã luôn nằm sẵn trong tên file xuất ra.
+
+Trong panel, gõ mã vào ô **"Mã"** (nhiều mã cách nhau bằng `;`, vd `VN-FL-D3-G2; VN-FL-D3-G1; TH-EVOS-D2-G1`):
+- Plugin tìm trong **thư mục dữ liệu** mọi file `.cues.json` có tên CHỨA mã đó (không phân biệt hoa/thường).
+- Mỗi file khớp → tạo **1 sequence mới riêng** (tên sequence = mã). Nếu 1 mã khớp nhiều file (mã chưa đủ cụ thể) thì vẫn chạy hết tất cả — không báo lỗi, chỉ cần đặt mã đủ dài (≥3 cụm) để tránh việc này.
+- Mã nào không khớp file nào → báo rõ ở cuối, không chặn các mã khác.
+- File `.srt` khớp theo **tiền tố tên file** trùng với file `.cues.json` đã khớp (tự động, không cần gõ thêm).
+- File **video** (`.mp4`/`.mov`/`.mxf`/`.avi`) trong thư mục dữ liệu cũng được dò theo **cùng mã** — nếu 1 mã khớp nhiều video (vd nhiều góc quay), mỗi video được đặt vào **1 track V riêng** (V1, V2, ...), không đè/trồng chéo lên nhau. Ảnh nhân vật luôn nằm ở track ngay sau tất cả video đã đặt.
+
+Nếu để trống ô **Mã** và thư mục dữ liệu chỉ có đúng 1 file `.cues.json`, plugin tự chạy luôn file đó (không bắt buộc phải gõ mã cho trường hợp đơn giản 1 dự án).
+
 ## Quy trình sử dụng (A → Z)
 
 ### Bước 1 — Chuẩn bị dữ liệu
 
-Bạn cần một thư mục chứa:
-- File `.docx`, `.csv`, hoặc `.xlsx` gốc (bảng **Time Stamp / Player / EN**, đúng 3 cột này, không cần thêm cột Ảnh) **hoặc** đã có sẵn file `<tên>.cues.json`
-- Các file ảnh nhân vật, **đặt tên trùng với giá trị cột Player** (vd Player ghi `FL.ABCD` thì cần file `FL.ABCD.png`/`.jpg`/`.jpeg`)
-- (Tuỳ chọn) 1 file video nền (`.mp4`/`.mov`/`.mxf`/`.avi`)
-- (Tuỳ chọn) file `.srt` nếu muốn caption
+Tạo file `.docx`/`.csv`/`.xlsx` với bảng gồm 2 cột bắt buộc **Time Stamp / Player**, cộng **1 hoặc nhiều cột phụ đề** tuỳ ý (vd chỉ `EN`, hoặc cả `ID` + `EN`, hoặc `VN`/`TH`... — không giới hạn tên/số lượng cột). Chưa có sẵn file? Mở [`File_Mau_Docx_Mic_Check.docx`](File_Mau_Docx_Mic_Check.docx) làm mẫu.
 
-Chưa có sẵn file? Mở [`File_Mau_Docx_Mic_Check.docx`](File_Mau_Docx_Mic_Check.docx) — file mẫu đúng format, xoá dòng ví dụ và điền dữ liệu thật vào là dùng được ngay.
+Đặt tên file nguồn có **mã tiền tố** nếu định chạy hàng loạt nhiều đội (xem mục "Cơ chế Mã" ở trên).
 
-Nếu chỉ có `.docx`/`.csv`/`.xlsx`, chuyển đổi sang `cues.json` + `.srt` bằng một trong hai cách:
+Chuyển đổi sang `cues.json` + 1 file `.srt`/cột phụ đề bằng cách kéo thả file `.docx`/`.csv`/`.xlsx` thẳng vào biểu tượng `scripts/Chuyen_Doi_File_Mic_Check.exe` (đã đóng gói sẵn Python, không cần cài gì thêm). Ví dụ bảng có 2 cột `ID`+`EN` sẽ ra 2 file: `<tên>_ID.srt` và `<tên>_EN.srt`; bảng chỉ có `EN` thì ra đúng 1 file `<tên>_EN.srt`.
 
-**Cách nhanh (khuyên dùng — không cần cài gì cả):**
-Kéo thả file `.docx`, `.csv`, hoặc `.xlsx` thẳng vào biểu tượng `scripts/Chuyen_Doi_File_Mic_Check.exe`. Kết quả (`<tên>.cues.json`, `<tên>.srt`) sẽ được tạo ngay trong thư mục chứa file nguồn. File `.exe` này đã đóng gói sẵn Python + thư viện — không cần cài gì thêm.
-
-**Cách dùng file .exe qua dòng lệnh (tuỳ chỉnh thư mục ảnh/xuất riêng):**
+Dòng lệnh (tuỳ chỉnh thư mục xuất riêng, hoặc chạy từ source `.py`):
 ```bash
-scripts/Chuyen_Doi_File_Mic_Check.exe --input "duong/dan/file.docx" --images "thu muc anh" --out-dir "thu muc xuat"
+scripts/Chuyen_Doi_File_Mic_Check.exe --input "duong/dan/file.docx" --out-dir "thu muc xuat"
+# hoặc: pip install -r scripts/requirements.txt && python scripts/docx_to_mic_check.py --input ... --out-dir ...
 ```
 
-**Cách chạy từ source .py (chỉ cần khi tự sửa code):**
-```bash
-pip install -r scripts/requirements.txt
-python scripts/docx_to_mic_check.py --input "duong/dan/file.docx" --images "thu muc anh" --out-dir "thu muc xuat"
-```
+**Về file `.csv`**: nếu xuất từ Google Sheets/Excel, cột Time Stamp có dấu phẩy trong nội dung (`00:00:01,200 --> ...`) — công cụ export chuẩn sẽ tự bọc dấu ngoặc kép quanh cell đó, không cần chỉnh tay gì thêm. Encoding đọc là UTF-8 (tự bỏ BOM nếu có). Dấu phân cách thời gian chấp nhận cả `-->` (chuẩn SRT) lẫn `→` (mũi tên Unicode, hay gặp khi copy từ Google Sheets).
 
-**Về file `.csv`**: nếu xuất từ Google Sheets/Excel, cột Time Stamp có dấu phẩy trong nội dung (`00:00:01,200 --> ...`) — công cụ export chuẩn sẽ tự bọc dấu ngoặc kép quanh cell đó, không cần chỉnh tay gì thêm. Encoding đọc là UTF-8 (tự bỏ BOM nếu có).
+Ảnh nhân vật và video (nếu có) **KHÔNG cần nằm cùng thư mục** với file nguồn — chuẩn bị riêng theo đúng kiến trúc 2-thư-mục ở trên.
 
 ### Bước 2 — Chạy Mic Check trong Premiere
 
 1. Mở panel **Mic Check**.
-2. Bấm **Chọn** → chọn thư mục chứa `cues.json` + ảnh (+ video nền, `.srt` nếu có). Plugin tự dò file, nếu có nhiều lựa chọn (nhiều video hoặc nhiều `.srt`) sẽ cho chọn qua dropdown.
-3. Nhập **Tên sequence** (gợi ý tự điền theo tên file cues.json).
-4. Chọn **Hướng khung hình** (Landscape 1920x1080 hoặc Portrait 1080x1920).
-5. Bấm **▶ Chạy Mic Check**. Plugin sẽ:
-   - Tạo sequence mới ở 60fps đúng hướng đã chọn
-   - Import video nền + file `.srt` (nếu có) + toàn bộ ảnh vào Project panel
-   - Đặt video nền và từng ảnh lên timeline đúng thời điểm + thời lượng theo `cues.json`
+2. Bấm **Chọn** ở dòng **Thư mục ảnh** → chọn thư mục ảnh dùng chung (chỉ cần làm 1 lần, plugin nhớ lại cho các lần sau).
+3. Bấm **Chọn** ở dòng **Thư mục dữ liệu** → chọn thư mục chứa `cues.json`/`.srt`/video (có thể lẫn nhiều dự án).
+4. Gõ **Mã** (bỏ trống nếu thư mục chỉ có 1 dự án) — nhiều mã cách nhau bằng `;` để chạy hàng loạt.
+5. Chọn **Hướng khung hình** (áp dụng chung cho mọi sequence tạo trong lần chạy này).
+6. Bấm **▶ Chạy Mic Check**. Với mỗi mã/file khớp, plugin tự:
+   - Tạo 1 sequence mới, 60fps, đúng hướng đã chọn (tên sequence = mã, hoặc tên file nếu chạy không gõ mã)
+   - Đặt video khớp mã (nếu có) lên các track V riêng biệt, đặt ảnh nhân vật lên track kế tiếp
+   - Import toàn bộ file `.srt` khớp vào Project panel
+   - Bỏ qua (và báo rõ ở cuối) những cue thiếu ảnh, không chặn cả lần chạy
 
 ### Bước 3 — Verify
 
-Bấm **✓ Verify** để plugin so sánh timeline hiện tại với `cues.json`, báo cáo ảnh nào đặt đúng/lệch vị trí hoặc thời lượng.
+Bấm **✓ Verify** — plugin tự đối chiếu **sequence đang active trong Premiere** (tự suy ra đúng file `cues.json` tương ứng theo tên sequence), báo ảnh nào đặt đúng/lệch vị trí hoặc thời lượng.
 
 ### Bước 4 — Thêm caption (thủ công)
 
-UXP API của Premiere hiện **không cho phép gắn SRT vào Caption Track bằng script** — đây là bước duy nhất còn phải làm tay. File `.srt` đã được plugin tự import sẵn vào **Project panel** ở Bước 2 (không cần tìm lại ngoài File Explorer):
+UXP API của Premiere hiện **không cho phép gắn SRT vào Caption Track bằng script** — đây là bước duy nhất còn phải làm tay. File `.srt` đã được plugin tự import sẵn vào **Project panel** ở Bước 2 (không cần tìm lại ngoài File Explorer). Nếu có nhiều ngôn ngữ (nhiều file `.srt`), lặp lại bước này cho từng ngôn ngữ, mỗi ngôn ngữ 1 caption track riêng:
 1. Trong Premiere, tạo caption track: **Window → Text → Captions** hoặc kéo file `.srt` thẳng vào timeline.
 2. Từ **Project panel**, kéo file `.srt` vào track caption, đặt ở vị trí giây 0.
 
@@ -126,3 +138,6 @@ File `.exe` mới sẽ ghi đè lên bản cũ trong `scripts/`.
   2. Mở lại panel Mic Check, **chọn lại đúng thư mục dự án** đó.
   3. Bấm **▶ Chạy Mic Check** lại bình thường — thao tác đặt clip dùng chế độ overwrite nên idempotent (an toàn chạy lại nhiều lần), các ảnh đã đặt đúng vị trí trước đó sẽ chỉ bị ghi đè lại chứ không nhân đôi.
   4. Nên **Save project (Ctrl+S)** thủ công trước khi chạy Mic Check với dự án nhiều ảnh, để có điểm khôi phục gần nhất nếu crash.
+- **Thiếu ảnh không chặn cả lần chạy** — cue nào không tìm thấy ảnh khớp tên Player trong thư mục ảnh sẽ bị bỏ qua (không đặt lên timeline), các cue khác vẫn chạy bình thường, danh sách player thiếu ảnh được báo rõ ở cuối log.
+- **Video khớp mã**: nếu 1 mã khớp nhiều video, mỗi video vào 1 track V + 1 track audio riêng (V1/A1, V2/A2...) để không đè hình lẫn tiếng. Ảnh nhân vật luôn ở track V ngay sau track video cuối cùng.
+- Nút **Verify** tự suy ra file `cues.json` cần đối chiếu dựa theo **tên sequence đang active** trong Premiere — đặt tên sequence khác đi thủ công sau khi tạo sẽ khiến Verify không tìm được đúng file.
