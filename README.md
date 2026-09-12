@@ -110,14 +110,14 @@ Sau khi đã **Chạy Mic Check** (hoặc bất kỳ lúc nào có ảnh trên t
 1. **Track** — gõ đúng số track Premiere hiển thị (vd ảnh nằm ở V2 thì gõ `2`).
 2. **Vị trí** — bấm 1 trong 9 ô lưới 3×3 để chọn nhanh vị trí theo vùng (góc/giữa/cạnh, có tính safe zone cơ bản), hoặc gõ thẳng **X/Y theo pixel tuyệt đối** — số này **giống hệt** số hiển thị trong Premiere ở **Effect Controls → Motion → Position**, khớp trực tiếp không cần quy đổi.
 3. **Scale %** — cũng giống hệt số ở **Effect Controls → Motion → Scale**.
-4. Bấm **Áp vị trí cho ảnh trên track** — áp Position/Scale đó cho **toàn bộ** clip ảnh đang có trên track đã chọn. Hover vào icon **ⓘ** cạnh nút để xem cảnh báo: thao tác này **ghi đè** vị trí của mọi clip trên track, kể cả những clip bạn đã tự kéo tay chỉnh riêng trước đó.
+4. Bấm **Áp dụng thay đổi cho ảnh trên track** — áp Position/Scale đó cho **toàn bộ** clip ảnh đang có trên track đã chọn. Hover vào icon **ⓘ** cạnh nút để xem cảnh báo: thao tác này **ghi đè** vị trí của mọi clip trên track, kể cả những clip bạn đã tự kéo tay chỉnh riêng trước đó.
 
 **Lấy chuẩn từ 1 ảnh đã tự kéo tay chỉnh** — nếu bạn vừa tự kéo/resize 1 ảnh trong Program Monitor và muốn áp đúng vị trí đó cho các ảnh còn lại trên track:
 1. Trong Premiere, click chọn đúng clip ảnh đó trên timeline.
-2. Trong panel, bấm **⇧ Lấy từ ảnh đang chọn** — plugin đọc lại Position/Scale **thật** hiện tại của clip đó và tự điền vào ô X/Y/Scale.
-3. Bấm **Áp vị trí cho ảnh trên track** như bình thường để áp cho các ảnh khác.
+2. Trong panel, bấm **Lấy motion từ ảnh đang chọn** — plugin đọc lại Position/Scale **thật** hiện tại của clip đó và tự điền vào ô X/Y/Scale.
+3. Bấm **Áp dụng thay đổi cho ảnh trên track** như bình thường để áp cho các ảnh khác.
 
-> Lưu ý: panel **không tự đồng bộ ngược** khi bạn kéo tay chỉnh trong Program Monitor — số trong ô X/Y/Scale chỉ đổi khi bạn tự gõ, chọn ô lưới, hoặc bấm "Lấy từ ảnh đang chọn". Nếu vừa tự chỉnh tay nhiều ảnh khác nhau rồi bấm "Áp vị trí..." với số cũ còn sót trong ô, các ảnh đó sẽ bị ghi đè về cùng 1 vị trí.
+> Lưu ý: panel **không tự đồng bộ ngược** khi bạn kéo tay chỉnh trong Program Monitor — số trong ô X/Y/Scale chỉ đổi khi bạn tự gõ, chọn ô lưới, hoặc bấm "Lấy motion từ ảnh đang chọn". Nếu vừa tự chỉnh tay nhiều ảnh khác nhau rồi bấm "Áp dụng thay đổi..." với số cũ còn sót trong ô, các ảnh đó sẽ bị ghi đè về cùng 1 vị trí.
 
 ### Bước 5 — Thêm caption (thủ công)
 

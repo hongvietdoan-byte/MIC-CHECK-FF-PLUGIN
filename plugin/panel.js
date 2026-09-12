@@ -328,7 +328,7 @@
       $("mcLayoutY").value = layout.yPixels;
       $("mcLayoutScale").value = layout.scalePercent;
       document.querySelectorAll("#mcZoneGrid .zone-btn").forEach((b) => b.classList.remove("active"));
-      logLine(`✅ Đã lấy Position=(${layout.xPixels}px, ${layout.yPixels}px), Scale=${layout.scalePercent}% từ ảnh đang chọn. Bấm "Áp vị trí..." để áp cho các ảnh khác trên track.`);
+      logLine(`✅ Đã lấy Position=(${layout.xPixels}px, ${layout.yPixels}px), Scale=${layout.scalePercent}% từ ảnh đang chọn. Bấm "Áp dụng thay đổi..." để áp cho các ảnh khác trên track.`);
     } catch (e) {
       logLine(`❌ Lỗi: ${e.message}`);
     } finally {
