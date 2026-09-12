@@ -1,0 +1,269 @@
+{
+  "sourceFile": "VN-Pe-G1-D1.xlsx",
+  "cueCount": 26,
+  "subtitleColumns": [
+    "EN"
+  ],
+  "cues": [
+    {
+      "index": 0,
+      "start": 0.466,
+      "end": 0.8,
+      "player": "PE.LBT",
+      "image": "PE.LBT",
+      "texts": {
+        "EN": "Throw it where?"
+      }
+    },
+    {
+      "index": 1,
+      "start": 1.066,
+      "end": 2.3,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "Throw it further back"
+      }
+    },
+    {
+      "index": 2,
+      "start": 2.3,
+      "end": 3.8,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "so if needed I'll throw one and break all his Gloowalls"
+      }
+    },
+    {
+      "index": 3,
+      "start": 4.0,
+      "end": 4.666,
+      "player": "PE.Alan",
+      "image": "PE.Alan",
+      "texts": {
+        "EN": "Get ready to use the Bolt Maker to drop the lightning"
+      }
+    },
+    {
+      "index": 4,
+      "start": 4.966,
+      "end": 5.666,
+      "player": "PE.CTUAN",
+      "image": "PE.CTUAN",
+      "texts": {
+        "EN": "Not yet!"
+      }
+    },
+    {
+      "index": 5,
+      "start": 6.033,
+      "end": 7.0,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "Take your time, focus them"
+      }
+    },
+    {
+      "index": 6,
+      "start": 7.0,
+      "end": 7.666,
+      "player": "PE.Alan",
+      "image": "PE.Alan",
+      "texts": {
+        "EN": "Got it"
+      }
+    },
+    {
+      "index": 7,
+      "start": 8.866,
+      "end": 11.033,
+      "player": "PE.LBT",
+      "image": "PE.LBT",
+      "texts": {
+        "EN": "Right after these 10 seconds, use the Bolt Maker to drop the lightning"
+      }
+    },
+    {
+      "index": 8,
+      "start": 11.433,
+      "end": 11.966,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "Drop it now"
+      }
+    },
+    {
+      "index": 9,
+      "start": 11.966,
+      "end": 13.033,
+      "player": "PE.LBT",
+      "image": "PE.LBT",
+      "texts": {
+        "EN": "Alright, Look at launch pad"
+      }
+    },
+    {
+      "index": 10,
+      "start": 13.8,
+      "end": 14.733,
+      "player": "PE.LBT",
+      "image": "PE.LBT",
+      "texts": {
+        "EN": "He's flying straight at us"
+      }
+    },
+    {
+      "index": 11,
+      "start": 14.9,
+      "end": 16.3,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "No matter what, that guy's flying into us"
+      }
+    },
+    {
+      "index": 12,
+      "start": 16.366,
+      "end": 18.066,
+      "player": "PE.CTUAN",
+      "image": "PE.CTUAN",
+      "texts": {
+        "EN": "Go left, Alan"
+      }
+    },
+    {
+      "index": 13,
+      "start": 18.1,
+      "end": 18.566,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "Saw him, saw him, breaking it"
+      }
+    },
+    {
+      "index": 14,
+      "start": 18.633,
+      "end": 19.233,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "Breaking this, breaking this"
+      }
+    },
+    {
+      "index": 15,
+      "start": 19.366,
+      "end": 20.133,
+      "player": "PE.Alan",
+      "image": "PE.Alan",
+      "texts": {
+        "EN": "Skyler on the left"
+      }
+    },
+    {
+      "index": 16,
+      "start": 20.133,
+      "end": 21.033,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "One guy on the right, watch right"
+      }
+    },
+    {
+      "index": 17,
+      "start": 21.266,
+      "end": 21.966,
+      "player": "PE.LBT",
+      "image": "PE.LBT",
+      "texts": {
+        "EN": "Alright, I've got eyes on it"
+      }
+    },
+    {
+      "index": 18,
+      "start": 22.766,
+      "end": 23.433,
+      "player": "PE.Alan",
+      "image": "PE.Alan",
+      "texts": {
+        "EN": "Left side, one's low"
+      }
+    },
+    {
+      "index": 19,
+      "start": 23.466,
+      "end": 24.0,
+      "player": "PE.CTUAN",
+      "image": "PE.CTUAN",
+      "texts": {
+        "EN": "One knocked"
+      }
+    },
+    {
+      "index": 20,
+      "start": 24.633,
+      "end": 25.733,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "Breaking Moco's gloowall"
+      }
+    },
+    {
+      "index": 21,
+      "start": 26.3,
+      "end": 26.6,
+      "player": "PE.CTUAN",
+      "image": "PE.CTUAN",
+      "texts": {
+        "EN": "Confirmed kill"
+      }
+    },
+    {
+      "index": 22,
+      "start": 27.4,
+      "end": 28.133,
+      "player": "PE.Alan",
+      "image": "PE.Alan",
+      "texts": {
+        "EN": "There's still Moco on the left"
+      }
+    },
+    {
+      "index": 23,
+      "start": 28.5,
+      "end": 29.1,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "Breaking this"
+      }
+    },
+    {
+      "index": 24,
+      "start": 29.1,
+      "end": 29.933,
+      "player": "PE.Nero",
+      "image": "PE.Nero",
+      "texts": {
+        "EN": "Clear"
+      }
+    },
+    {
+      "index": 25,
+      "start": 30.3,
+      "end": 32.233,
+      "player": "PE.LBT",
+      "image": "PE.LBT",
+      "texts": {
+        "EN": "Go right"
+      }
+    }
+  ]
+}

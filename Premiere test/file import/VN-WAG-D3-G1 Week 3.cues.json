@@ -1,0 +1,164 @@
+{
+  "sourceFile": "VN-WAG-D3-G1 Week 3.csv",
+  "cueCount": 14,
+  "subtitleColumns": [
+    "EN",
+    "ID"
+  ],
+  "cues": [
+    {
+      "index": 0,
+      "start": 0.133,
+      "end": 0.733,
+      "player": "WAG.PLS1",
+      "image": "WAG.PLS1",
+      "texts": {
+        "EN": "Alright, 4v4",
+        "ID": "Oke, 4v4."
+      }
+    },
+    {
+      "index": 1,
+      "start": 0.733,
+      "end": 1.333,
+      "player": "WAG.TQUY",
+      "image": "WAG.TQUY",
+      "texts": {
+        "EN": "4v4 right?",
+        "ID": "4v4, kan?"
+      }
+    },
+    {
+      "index": 2,
+      "start": 1.5,
+      "end": 2.066,
+      "player": "WAG.HOANGM",
+      "image": "WAG.HOANGM",
+      "texts": {
+        "EN": "It's 4v4, guys",
+        "ID": "Ini 4v4, guys."
+      }
+    },
+    {
+      "index": 3,
+      "start": 2.233,
+      "end": 2.766,
+      "player": "WAG.NHAN7",
+      "image": "WAG.NHAN7",
+      "texts": {
+        "EN": "Break the right Gloowall",
+        "ID": "Hancurin Gloo Wall kanan."
+      }
+    },
+    {
+      "index": 4,
+      "start": 2.766,
+      "end": 3.266,
+      "player": "WAG.NHAN7",
+      "image": "WAG.NHAN7",
+      "texts": {
+        "EN": "Middle field, right side",
+        "ID": "Di tengah, sisi kanan."
+      }
+    },
+    {
+      "index": 5,
+      "start": 4.066,
+      "end": 4.9,
+      "player": "WAG.PLS1",
+      "image": "WAG.PLS1",
+      "texts": {
+        "EN": "Hey, push right, team",
+        "ID": "Hei, push kanan, team."
+      }
+    },
+    {
+      "index": 6,
+      "start": 4.9,
+      "end": 5.8,
+      "player": "WAG.TQUY",
+      "image": "WAG.TQUY",
+      "texts": {
+        "EN": "Go out and push them, Nhân",
+        "ID": "Keluar dan push mereka, Nhân."
+      }
+    },
+    {
+      "index": 7,
+      "start": 5.8,
+      "end": 6.566,
+      "player": "WAG.HOANGM",
+      "image": "WAG.HOANGM",
+      "texts": {
+        "EN": "Go down",
+        "ID": "Turun."
+      }
+    },
+    {
+      "index": 8,
+      "start": 6.933,
+      "end": 7.9,
+      "player": "WAG.TQUY",
+      "image": "WAG.TQUY",
+      "texts": {
+        "EN": "Push up to the hill on the right, Nhân",
+        "ID": "Naik ke bukit sebelah kanan, Nhân."
+      }
+    },
+    {
+      "index": 9,
+      "start": 8.333,
+      "end": 9.033,
+      "player": "WAG.HOANGM",
+      "image": "WAG.HOANGM",
+      "texts": {
+        "EN": "I’m down below, behind you guy",
+        "ID": "Saya di bawah, di belakang kamu."
+      }
+    },
+    {
+      "index": 10,
+      "start": 9.033,
+      "end": 10.033,
+      "player": "WAG.HOANGM",
+      "image": "WAG.HOANGM",
+      "texts": {
+        "EN": "I'll hold at the rock hill",
+        "ID": "Saya tahan di bukit dekat batu."
+      }
+    },
+    {
+      "index": 11,
+      "start": 10.233,
+      "end": 11.266,
+      "player": "WAG.TQUY",
+      "image": "WAG.TQUY",
+      "texts": {
+        "EN": "Follow me, Nhân!",
+        "ID": "Ikuti saya, Nhân!"
+      }
+    },
+    {
+      "index": 12,
+      "start": 13.9,
+      "end": 15.2,
+      "player": "WAG.PLS1",
+      "image": "WAG.PLS1",
+      "texts": {
+        "EN": "The sniper's standing right by the 3 Gloowalls, see him, guys?",
+        "ID": "Sniper-nya berdiri dekat 3 Gloo Wall, kalian lihat, guys?"
+      }
+    },
+    {
+      "index": 13,
+      "start": 15.2,
+      "end": 15.966,
+      "player": "WAG.HOANGM",
+      "image": "WAG.HOANGM",
+      "texts": {
+        "EN": "Yeah, see him",
+        "ID": "Iya, kelihatan."
+      }
+    }
+  ]
+}

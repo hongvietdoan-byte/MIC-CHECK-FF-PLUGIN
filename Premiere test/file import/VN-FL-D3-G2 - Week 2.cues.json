@@ -1,0 +1,648 @@
+{
+  "sourceFile": "VN-FL-D3-G2 - Week 2.csv",
+  "cueCount": 58,
+  "subtitleColumns": [
+    "ID",
+    "EN"
+  ],
+  "cues": [
+    {
+      "index": 0,
+      "start": 0.9,
+      "end": 1.433,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Hancurin UAV Gloo",
+        "EN": "Break UAV Gloo"
+      }
+    },
+    {
+      "index": 1,
+      "start": 1.766,
+      "end": 2.233,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Masih ada orang tepat di depan kita",
+        "EN": "Still people right in front of us"
+      }
+    },
+    {
+      "index": 2,
+      "start": 2.433,
+      "end": 3.433,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Ini 4-4, kan?",
+        "EN": "Is it 4-4 right?"
+      }
+    },
+    {
+      "index": 3,
+      "start": 4.866,
+      "end": 6.1,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "Nggak, bukan 4-4.",
+        "EN": "Nah, it’s not 4-4."
+      }
+    },
+    {
+      "index": 4,
+      "start": 6.1,
+      "end": 6.566,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Saya ambil kiri.",
+        "EN": "I’ll go the left."
+      }
+    },
+    {
+      "index": 5,
+      "start": 6.566,
+      "end": 7.4,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Satu orang sendirian di kiri.",
+        "EN": "One left isolated."
+      }
+    },
+    {
+      "index": 6,
+      "start": 7.5,
+      "end": 8.8,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Bro, tunggu saya heal dulu sebentar!",
+        "EN": "Bro, let me heal up real quick!"
+      }
+    },
+    {
+      "index": 7,
+      "start": 9.133,
+      "end": 9.833,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Saya push dari kiri sekarang!",
+        "EN": "I’m pushing left now!"
+      }
+    },
+    {
+      "index": 8,
+      "start": 10.4,
+      "end": 10.866,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Saya push dari kiri sekarang!",
+        "EN": "I’m pushing left now!"
+      }
+    },
+    {
+      "index": 9,
+      "start": 10.866,
+      "end": 12.3,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Yo, mereka lewat tiang listrik!",
+        "EN": "Yo, they’re going through the electric pole!"
+      }
+    },
+    {
+      "index": 10,
+      "start": 12.3,
+      "end": 13.0,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Tekan dari arah menara listrik!",
+        "EN": "Pressure the electric tower!"
+      }
+    },
+    {
+      "index": 11,
+      "start": 13.0,
+      "end": 13.5,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Sini dulu.",
+        "EN": "Come over here."
+      }
+    },
+    {
+      "index": 12,
+      "start": 13.766,
+      "end": 14.2,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Ada yang di menara listrik?",
+        "EN": "Anyone at the electric tower?"
+      }
+    },
+    {
+      "index": 13,
+      "start": 14.2,
+      "end": 15.433,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Dua orang.",
+        "EN": "Two players."
+      }
+    },
+    {
+      "index": 14,
+      "start": 15.833,
+      "end": 16.633,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Tunggu, saya nade dulu.",
+        "EN": "Wait, let me nade first."
+      }
+    },
+    {
+      "index": 15,
+      "start": 16.633,
+      "end": 17.566,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Pelan-pelan, jangan push dulu.",
+        "EN": "Take it slow, don’t push yet."
+      }
+    },
+    {
+      "index": 16,
+      "start": 17.566,
+      "end": 18.166,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Oke, siap.",
+        "EN": "Alright, okay."
+      }
+    },
+    {
+      "index": 17,
+      "start": 19.033,
+      "end": 19.8,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Lempar granat aja.",
+        "EN": "Just throw grenade"
+      }
+    },
+    {
+      "index": 18,
+      "start": 20.966,
+      "end": 22.466,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Push dia, NLUANN!",
+        "EN": "Push him, NLUANN!"
+      }
+    },
+    {
+      "index": 19,
+      "start": 23.533,
+      "end": 24.133,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Saya hancurin UAV Gloo.",
+        "EN": "I’ll break UAV gloo"
+      }
+    },
+    {
+      "index": 20,
+      "start": 25.2,
+      "end": 26.5,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "Zona datang ke arah kita.",
+        "EN": "Zone is coming our side"
+      }
+    },
+    {
+      "index": 21,
+      "start": 27.0,
+      "end": 27.866,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "MinkCuog, kamu bisa!",
+        "EN": "MinkCuog, you got this!"
+      }
+    },
+    {
+      "index": 22,
+      "start": 28.133,
+      "end": 29.3,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Ada UAV heal dan UAV Gloo di sini.",
+        "EN": "UAV heal and UAV gloo here."
+      }
+    },
+    {
+      "index": 23,
+      "start": 29.633,
+      "end": 30.9,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "TheGod, masih ada UAV heal lagi?",
+        "EN": "TheGod, any more UAV heal?"
+      }
+    },
+    {
+      "index": 24,
+      "start": 30.9,
+      "end": 31.733,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "UAV heal ada di sini.",
+        "EN": "UAV heal is here."
+      }
+    },
+    {
+      "index": 25,
+      "start": 31.733,
+      "end": 32.566,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "UAV heal sama Gloo juga ada!",
+        "EN": "Both UAV heal and gloo, too!"
+      }
+    },
+    {
+      "index": 26,
+      "start": 32.966,
+      "end": 34.266,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Yo, kanan!",
+        "EN": "Yo, right side!"
+      }
+    },
+    {
+      "index": 27,
+      "start": 34.7,
+      "end": 36.0,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Cek kanan lagi!",
+        "EN": "Check the right again!"
+      }
+    },
+    {
+      "index": 28,
+      "start": 36.5,
+      "end": 36.966,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Sakit banget!",
+        "EN": "That hurts!"
+      }
+    },
+    {
+      "index": 29,
+      "start": 38.166,
+      "end": 38.8,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Ini 4-4 atau gimana?",
+        "EN": "Is it 4-4 or something?"
+      }
+    },
+    {
+      "index": 30,
+      "start": 38.833,
+      "end": 39.966,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Sisi kanan lemah!",
+        "EN": "Right side is weak!"
+      }
+    },
+    {
+      "index": 31,
+      "start": 40.233,
+      "end": 40.666,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Satu sekarat!",
+        "EN": "1 weak"
+      }
+    },
+    {
+      "index": 32,
+      "start": 41.1,
+      "end": 41.5,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Dia udah mulai lawan saya.",
+        "EN": "He’s already using to fight me"
+      }
+    },
+    {
+      "index": 33,
+      "start": 42.1,
+      "end": 42.733,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Masih 4-4, guys!",
+        "EN": "Still 4-4, guys!"
+      }
+    },
+    {
+      "index": 34,
+      "start": 43.966,
+      "end": 44.4,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "Ambil satu!",
+        "EN": "Pick 1!"
+      }
+    },
+    {
+      "index": 35,
+      "start": 44.4,
+      "end": 45.033,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Ayo, MinhCuog!",
+        "EN": "Let’s go, MinhCuog!"
+      }
+    },
+    {
+      "index": 36,
+      "start": 46.1,
+      "end": 46.533,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "Ambil dua!",
+        "EN": "Pick 2!"
+      }
+    },
+    {
+      "index": 37,
+      "start": 46.833,
+      "end": 47.233,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Mantap!",
+        "EN": "Nice!"
+      }
+    },
+    {
+      "index": 38,
+      "start": 47.9,
+      "end": 49.333,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Tinggal dua, NLUANN!",
+        "EN": "Only two left, NLUANN!"
+      }
+    },
+    {
+      "index": 39,
+      "start": 49.533,
+      "end": 50.866,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Yo, tolong saya! Saya knock di belakang Gloo Wall, MinkCuog!",
+        "EN": "Yo, save me! I’m down behind the gloo wall, MinkCuog!"
+      }
+    },
+    {
+      "index": 40,
+      "start": 51.366,
+      "end": 52.033,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Pasang Gloo Wall, MinhCuog!",
+        "EN": "Drop gloo wall, MinhCuog!"
+      }
+    },
+    {
+      "index": 41,
+      "start": 52.433,
+      "end": 53.233,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Siap!",
+        "EN": "Got it!"
+      }
+    },
+    {
+      "index": 42,
+      "start": 54.533,
+      "end": 56.0,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Tembak yang dekat, guys! Fokus yang dekat!",
+        "EN": "Shoot the close one, guys! Focus the close one!"
+      }
+    },
+    {
+      "index": 43,
+      "start": 56.3,
+      "end": 57.7,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "Ada Oscar? Oscar, maju!!!",
+        "EN": "Do you have Oscar? Oscar, go for it!!!"
+      }
+    },
+    {
+      "index": 44,
+      "start": 57.7,
+      "end": 58.166,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Oscar, MinkCuog!",
+        "EN": "Oscar, MinkCuog!"
+      }
+    },
+    {
+      "index": 45,
+      "start": 58.466,
+      "end": 58.966,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Tunggu!",
+        "EN": "Wait!"
+      }
+    },
+    {
+      "index": 46,
+      "start": 58.966,
+      "end": 59.466,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Ambil yang ini!",
+        "EN": "This pick!"
+      }
+    },
+    {
+      "index": 47,
+      "start": 59.466,
+      "end": 60.266,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Bagus, beres!",
+        "EN": "Good, done!"
+      }
+    },
+    {
+      "index": 48,
+      "start": 61.8,
+      "end": 62.266,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "Ambil tiga!",
+        "EN": "Pick 3!"
+      }
+    },
+    {
+      "index": 49,
+      "start": 62.266,
+      "end": 62.966,
+      "player": "FL.TheGod",
+      "image": "FL.TheGod",
+      "texts": {
+        "ID": "Orang terakhir!",
+        "EN": "Last guy!"
+      }
+    },
+    {
+      "index": 50,
+      "start": 62.966,
+      "end": 63.7,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "Yang terakhir di mana?",
+        "EN": "Where’s the last one?"
+      }
+    },
+    {
+      "index": 51,
+      "start": 64.133,
+      "end": 64.933,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Dia di atas atau gimana?",
+        "EN": "Is he is up or something?"
+      }
+    },
+    {
+      "index": 52,
+      "start": 64.933,
+      "end": 66.466,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Dia dekat saya, HP-nya tipis!",
+        "EN": "He’s near by me, low HP!"
+      }
+    },
+    {
+      "index": 53,
+      "start": 67.533,
+      "end": 68.0,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "TERUS KENAPA?!",
+        "EN": "SO WHATTT?!"
+      }
+    },
+    {
+      "index": 54,
+      "start": 68.5,
+      "end": 68.833,
+      "player": "FL.ABCD",
+      "image": "FL.ABCD",
+      "texts": {
+        "ID": "Mantap!",
+        "EN": "Nice!"
+      }
+    },
+    {
+      "index": 55,
+      "start": 68.9,
+      "end": 69.233,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "AYO GOOOO!",
+        "EN": "LET’S GOOOO!"
+      }
+    },
+    {
+      "index": 56,
+      "start": 69.966,
+      "end": 71.133,
+      "player": "FL.MINKCUOG",
+      "image": "FL.MINKCUOG",
+      "texts": {
+        "ID": "Jenius????",
+        "EN": "Genius????"
+      }
+    },
+    {
+      "index": 57,
+      "start": 71.666,
+      "end": 73.033,
+      "player": "FL.NLUANN",
+      "image": "FL.NLUANN",
+      "texts": {
+        "ID": "Kamu jenius MinkCuog?",
+        "EN": "You are genius, MinkCuog?"
+      }
+    }
+  ]
+}
