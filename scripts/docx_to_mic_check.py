@@ -87,31 +87,43 @@ def _cell_to_str(value) -> str:
     return str(value).strip()
 
 
-def load_rows(path: Path):
-    """Đọc file .docx/.csv/.xlsx thành list các dòng, mỗi dòng là list ô text đã strip() — chuẩn
-    hoá về 1 định dạng chung để phần parse phía sau dùng chung logic, không quan tâm nguồn gốc file."""
+def load_sheets(path: Path):
+    """Đọc file .docx/.csv/.xlsx thành list (sheet_name, rows) — mỗi "rows" là list các dòng, mỗi
+    dòng là list ô text đã strip(), chuẩn hoá về 1 định dạng chung để phần parse phía sau dùng chung
+    logic, không quan tâm nguồn gốc file.
+
+    .xlsx đọc TẤT CẢ sheet trong file (không chỉ sheet active) — mỗi sheet là 1 phần tử riêng, vì 1
+    file thật (vd lịch trận nhiều tuần) có thể có nhiều sheet, mỗi sheet lại có thể chứa nhiều bảng
+    cạnh nhau (xem find_all_table_blocks). .docx/.csv không có khái niệm nhiều sheet nên chỉ trả về
+    đúng 1 phần tử, sheet_name=None."""
     suffix = path.suffix.lower()
     if suffix == ".docx":
         doc = Document(str(path))
         if not doc.tables:
             raise ValueError(f'File "{path}" không có bảng nào.')
         table = doc.tables[0]
-        return [[cell.text.strip() for cell in row.cells] for row in table.rows]
+        rows = [[cell.text.strip() for cell in row.cells] for row in table.rows]
+        return [(None, rows)]
 
     if suffix == ".csv":
         # utf-8-sig tự bỏ BOM nếu Excel/Google Sheets export kèm — không có BOM thì đọc utf-8 bình
         # thường, không ảnh hưởng gì.
         with open(path, "r", encoding="utf-8-sig", newline="") as f:
             reader = csv.reader(f)
-            return [[cell.strip() for cell in row] for row in reader if row]
+            rows = [[cell.strip() for cell in row] for row in reader if row]
+        return [(None, rows)]
 
     if suffix == ".xlsx":
         # data_only=True lấy giá trị đã TÍNH SẴN của công thức (không lấy công thức thô "=A1&B1").
         wb = load_workbook(str(path), data_only=True, read_only=True)
-        ws = wb.active  # luôn đọc sheet đang active khi lưu file — không đoán tên sheet.
-        rows = [[_cell_to_str(cell) for cell in row] for row in ws.iter_rows(values_only=True)]
+        sheets = []
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            rows = [[_cell_to_str(cell) for cell in row] for row in ws.iter_rows(values_only=True)]
+            rows = [row for row in rows if any(row)]  # bỏ dòng trống hoàn toàn
+            sheets.append((sheet_name, rows))
         wb.close()
-        return [row for row in rows if any(row)]  # bỏ dòng trống hoàn toàn
+        return sheets
 
     raise ValueError(
         f'Định dạng file "{path.suffix}" chưa được hỗ trợ. Chỉ đọc được: '
@@ -199,21 +211,30 @@ def find_all_table_blocks(rows):
             })
         return blocks
 
-    raise ValueError('Không tìm thấy dòng header có đủ 2 cột "Time Stamp"/"Player" trong bảng.')
+    # Không tìm thấy dòng header nào có "Time Stamp" — trả về rỗng thay vì raise ngay, để caller tự
+    # quyết định đây là lỗi (file/sheet duy nhất) hay chỉ đơn giản là sheet không phải bảng cue (vd
+    # sheet phụ lục thoại rời, đọc nhiều sheet thì bỏ qua sheet này là hợp lý, không phải lỗi).
+    return []
 
 
 def block_table_name(rows, block):
     """Lấy "mã"/tên bảng từ Ô ĐẦU TIÊN không rỗng ở dòng NGAY TRÊN dòng header, trong đúng phạm vi
     cột của block đó. Trả về None nếu không có dòng trên (header ở dòng đầu file) hoặc dòng đó rỗng
     trong phạm vi cột — dùng để phân biệt file chỉ có 1 bảng (không cần dòng tên) với file nhiều bảng
-    (BẮT BUỘC có dòng tên để đặt tên file xuất ra)."""
+    (BẮT BUỘC có dòng tên để đặt tên file xuất ra).
+
+    CHỈ lấy dòng ĐẦU TIÊN của ô đó (splitlines()[0]) — thực tế gặp ô tên bảng có kèm link Google
+    Drive xuống dòng ngay dưới tên đội (vd "TH - FLCN - BOOYAH - \nhttps://drive.google.com/..."),
+    link đó không phải 1 phần của mã, phải bỏ trước khi dùng làm tên file."""
     header_row_idx = block["header_row_idx"]
     if header_row_idx == 0:
         return None
     name_row = rows[header_row_idx - 1]
     for idx in range(block["col_start"], block["col_end"] + 1):
         if idx < len(name_row) and name_row[idx].strip():
-            return name_row[idx].strip()
+            first_line = name_row[idx].strip().splitlines()[0].strip()
+            if first_line:
+                return first_line
     return None
 
 
@@ -279,32 +300,55 @@ def extract_cues_for_block(rows, block, table_label=None):
 
 
 def parse_tables(path: Path):
-    """Đọc TOÀN BỘ bảng cue trong file — trả về list, mỗi phần tử là 1 bảng:
-    {"name": <mã bảng, hoặc None nếu file chỉ có 1 bảng và không có dòng tên>, "cues": [...],
+    """Đọc TOÀN BỘ bảng cue trong file — kể cả nhiều SHEET (.xlsx) và nhiều bảng cạnh nhau trong mỗi
+    sheet — trả về list, mỗi phần tử là 1 bảng: {"name": <mã bảng, hoặc None nếu cả file chỉ có
+    đúng 1 bảng duy nhất>, "sheet": <tên sheet, None nếu không phải .xlsx>, "cues": [...],
     "text_labels": [...]}.
 
-    File chỉ có 1 bảng (trường hợp phổ biến nhất, mẫu chuẩn) → "name" = None, giữ nguyên hành vi cũ
-    (xuất file theo tên file gốc, không đòi hỏi dòng tên phía trên header).
+    Cả FILE chỉ có ĐÚNG 1 bảng duy nhất (trường hợp phổ biến nhất, mẫu chuẩn — 1 sheet, không nhiều
+    bảng) → "name" = None, giữ nguyên hành vi cũ (xuất file theo tên file gốc, không đòi hỏi dòng tên
+    phía trên header).
 
-    File có NHIỀU bảng cạnh nhau (mỗi bảng ngăn cách bằng cột trống) → BẮT BUỘC mỗi bảng phải có 1
-    dòng "mã"/tên ngay trên header của nó (ô đầu tiên không rỗng trong phạm vi cột bảng đó) — dùng để
-    đặt tên file .cues.json/.srt xuất ra, khớp thẳng với cơ chế "Mã" đã có trong plugin Premiere."""
-    rows = load_rows(path)
-    blocks = find_all_table_blocks(rows)
+    File có NHIỀU bảng — dù là nhiều bảng cạnh nhau trong 1 sheet, hay nhiều sheet, hay cả hai — BẮT
+    BUỘC mỗi bảng phải có 1 dòng "mã"/tên ngay trên header của nó (ô đầu tiên không rỗng trong phạm
+    vi cột bảng đó) — dùng để đặt tên file .cues.json/.srt xuất ra, khớp thẳng với cơ chế "Mã" đã có
+    trong plugin Premiere.
+
+    Sheet không có bảng cue nào (vd sheet phụ lục thoại rời, không có cột Time Stamp/Player) tự động
+    bị bỏ qua NẾU file còn sheet khác có bảng — chỉ báo lỗi nếu file/sheet duy nhất không có bảng nào."""
+    sheets = load_sheets(path)
+
+    per_sheet_blocks = []  # [(sheet_name, rows, blocks)] — chỉ giữ sheet có ít nhất 1 bảng
+    for sheet_name, rows in sheets:
+        blocks = find_all_table_blocks(rows)
+        if not blocks:
+            if len(sheets) > 1:
+                label = sheet_name or "(không tên)"
+                print(f'  (Bỏ qua sheet "{label}" — không có bảng cue nào trong sheet này.)')
+                continue
+            raise ValueError('Không tìm thấy dòng header có đủ 2 cột "Time Stamp"/"Player" trong bảng.')
+        per_sheet_blocks.append((sheet_name, rows, blocks))
+
+    if not per_sheet_blocks:
+        raise ValueError("Không tìm thấy bảng cue nào (đủ cột \"Time Stamp\"/\"Player\") trong bất kỳ sheet nào của file.")
+
+    total_blocks = sum(len(blocks) for _, _, blocks in per_sheet_blocks)
 
     tables = []
-    for i, block in enumerate(blocks):
-        name = block_table_name(rows, block) if len(blocks) > 1 else None
-        if len(blocks) > 1 and not name:
-            raise ValueError(
-                f"Sheet có {len(blocks)} bảng cạnh nhau (cột {block['col_start'] + 1}-"
-                f"{block['col_end'] + 1} là bảng thứ {i + 1}) nhưng KHÔNG tìm thấy dòng \"mã\"/tên "
-                "bảng ngay phía trên dòng header của nó. Mỗi bảng cần 1 dòng tên riêng (vd "
-                '"VN-FL-D3-G2 Week 2") ở đúng ô đầu cột của bảng đó, ngay trên dòng "Time Stamp | '
-                'Player | ...".'
-            )
-        cues, text_labels = extract_cues_for_block(rows, block, table_label=name)
-        tables.append({"name": name, "cues": cues, "text_labels": text_labels})
+    for sheet_name, rows, blocks in per_sheet_blocks:
+        for block in blocks:
+            name = block_table_name(rows, block) if total_blocks > 1 else None
+            if total_blocks > 1 and not name:
+                sheet_note = f' sheet "{sheet_name}",' if sheet_name else ""
+                raise ValueError(
+                    f"File có nhiều hơn 1 bảng cue (tại{sheet_note} cột {block['col_start'] + 1}-"
+                    f"{block['col_end'] + 1}) nhưng KHÔNG tìm thấy dòng \"mã\"/tên bảng ngay phía "
+                    "trên dòng header của nó. Mỗi bảng cần 1 dòng tên riêng (vd \"VN-FL-D3-G2 Week "
+                    '2") ở đúng ô đầu cột của bảng đó, ngay trên dòng "Time Stamp | Player | ...".'
+                )
+            table_label = name or sheet_name
+            cues, text_labels = extract_cues_for_block(rows, block, table_label=table_label)
+            tables.append({"name": name, "sheet": sheet_name, "cues": cues, "text_labels": text_labels})
 
     return tables
 
