@@ -301,21 +301,26 @@ def extract_cues_for_block(rows, block, table_label=None):
 
 def parse_tables(path: Path):
     """Đọc TOÀN BỘ bảng cue trong file — kể cả nhiều SHEET (.xlsx) và nhiều bảng cạnh nhau trong mỗi
-    sheet — trả về list, mỗi phần tử là 1 bảng: {"name": <mã bảng, hoặc None nếu cả file chỉ có
-    đúng 1 bảng duy nhất>, "sheet": <tên sheet, None nếu không phải .xlsx>, "cues": [...],
-    "text_labels": [...]}.
+    sheet — trả về (tables, skipped):
+    - tables: list bảng đọc THÀNH CÔNG, mỗi phần tử {"name": <mã bảng, None nếu cả file chỉ có đúng 1
+      bảng duy nhất>, "sheet": <tên sheet, None nếu không phải .xlsx>, "cues": [...], "text_labels": [...]}
+    - skipped: list (label, lý do) các bảng TÌM THẤY header hợp lệ nhưng KHÔNG đọc ra được cue (vd cột
+      "Time Stamp" ghi timecode 1 mốc "01:03:36:04" thay vì khoảng "start --> end", hoặc thiếu dòng
+      "mã"/tên khi file có nhiều bảng) — chủ động BỎ QUA bảng đó, KHÔNG dừng cả file, để các bảng khác
+      vẫn ra kết quả bình thường; báo lại rõ ràng ở cuối cho user tự xử lý riêng bảng lỗi.
 
     Cả FILE chỉ có ĐÚNG 1 bảng duy nhất (trường hợp phổ biến nhất, mẫu chuẩn — 1 sheet, không nhiều
     bảng) → "name" = None, giữ nguyên hành vi cũ (xuất file theo tên file gốc, không đòi hỏi dòng tên
     phía trên header).
 
-    File có NHIỀU bảng — dù là nhiều bảng cạnh nhau trong 1 sheet, hay nhiều sheet, hay cả hai — BẮT
-    BUỘC mỗi bảng phải có 1 dòng "mã"/tên ngay trên header của nó (ô đầu tiên không rỗng trong phạm
-    vi cột bảng đó) — dùng để đặt tên file .cues.json/.srt xuất ra, khớp thẳng với cơ chế "Mã" đã có
-    trong plugin Premiere.
+    File có NHIỀU bảng — dù là nhiều bảng cạnh nhau trong 1 sheet, hay nhiều sheet, hay cả hai — mỗi
+    bảng cần 1 dòng "mã"/tên ngay trên header của nó (ô đầu tiên không rỗng trong phạm vi cột bảng
+    đó) để đặt tên file .cues.json/.srt xuất ra, khớp thẳng với cơ chế "Mã" đã có trong plugin
+    Premiere — thiếu dòng tên thì bảng đó bị xếp vào "skipped", không chặn các bảng khác.
 
     Sheet không có bảng cue nào (vd sheet phụ lục thoại rời, không có cột Time Stamp/Player) tự động
-    bị bỏ qua NẾU file còn sheet khác có bảng — chỉ báo lỗi nếu file/sheet duy nhất không có bảng nào."""
+    bị bỏ qua NẾU file còn sheet khác có bảng — chỉ báo lỗi (raise) nếu file/sheet duy nhất không có
+    bảng nào, hoặc CUỐI CÙNG không bảng nào đọc thành công (kể cả sau khi loại bỏ các bảng lỗi)."""
     sheets = load_sheets(path)
 
     per_sheet_blocks = []  # [(sheet_name, rows, blocks)] — chỉ giữ sheet có ít nhất 1 bảng
@@ -335,22 +340,31 @@ def parse_tables(path: Path):
     total_blocks = sum(len(blocks) for _, _, blocks in per_sheet_blocks)
 
     tables = []
+    skipped = []  # [(label, reason)]
     for sheet_name, rows, blocks in per_sheet_blocks:
         for block in blocks:
             name = block_table_name(rows, block) if total_blocks > 1 else None
-            if total_blocks > 1 and not name:
-                sheet_note = f' sheet "{sheet_name}",' if sheet_name else ""
-                raise ValueError(
-                    f"File có nhiều hơn 1 bảng cue (tại{sheet_note} cột {block['col_start'] + 1}-"
-                    f"{block['col_end'] + 1}) nhưng KHÔNG tìm thấy dòng \"mã\"/tên bảng ngay phía "
-                    "trên dòng header của nó. Mỗi bảng cần 1 dòng tên riêng (vd \"VN-FL-D3-G2 Week "
-                    '2") ở đúng ô đầu cột của bảng đó, ngay trên dòng "Time Stamp | Player | ...".'
-                )
-            table_label = name or sheet_name
-            cues, text_labels = extract_cues_for_block(rows, block, table_label=table_label)
-            tables.append({"name": name, "sheet": sheet_name, "cues": cues, "text_labels": text_labels})
+            fallback_label = f'cột {block["col_start"] + 1}-{block["col_end"] + 1}' + (
+                f' (sheet "{sheet_name}")' if sheet_name else ""
+            )
+            table_label = name or sheet_name or fallback_label
+            try:
+                if total_blocks > 1 and not name:
+                    raise ValueError(
+                        "Không tìm thấy dòng \"mã\"/tên bảng ngay phía trên dòng header — mỗi bảng "
+                        'cần 1 dòng tên riêng (vd "VN-FL-D3-G2 Week 2") ở đúng ô đầu cột của bảng đó '
+                        "khi file có nhiều hơn 1 bảng."
+                    )
+                cues, text_labels = extract_cues_for_block(rows, block, table_label=table_label)
+                tables.append({"name": name, "sheet": sheet_name, "cues": cues, "text_labels": text_labels})
+            except ValueError as e:
+                skipped.append((table_label, str(e)))
 
-    return tables
+    if not tables:
+        reasons = "\n".join(f'  - "{label}": {reason}' for label, reason in skipped)
+        raise ValueError(f"Không có bảng nào đọc ra được cue hợp lệ. Chi tiết từng bảng:\n{reasons}")
+
+    return tables, skipped
 
 
 def format_srt_timestamp(seconds: float) -> str:
@@ -436,9 +450,9 @@ def main():
 
     try:
         print(f"Đọc: {input_path}")
-        tables = parse_tables(input_path)
+        tables, skipped = parse_tables(input_path)
         if len(tables) > 1:
-            print(f"Phát hiện {len(tables)} bảng cạnh nhau trong file, mỗi bảng xuất riêng 1 bộ file:")
+            print(f"Phát hiện {len(tables)} bảng đọc được, mỗi bảng xuất riêng 1 bộ file:")
 
         out_dir.mkdir(parents=True, exist_ok=True)
         stem = input_path.stem
@@ -466,6 +480,11 @@ def main():
                 srt_path = out_dir / f"{base}_{suffix}.srt"
                 count = write_srt_for_column(cues, label, srt_path)
                 print(f"✅ Đã ghi {srt_path} ({count} dòng phụ đề)")
+
+        if skipped:
+            print(f"\n⚠️ Bỏ qua {len(skipped)} bảng KHÔNG đọc ra được cue (không chặn các bảng khác):")
+            for label, reason in skipped:
+                print(f'  - "{label}": {reason}')
 
         print(f'\n✅ Xong! Mo panel "Mic Check" trong Premiere, bam "Chon" chon dung thu muc du lieu:\n   {out_dir}')
     except Exception as e:
