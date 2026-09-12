@@ -60,7 +60,11 @@ Converter (Bước 1) tự nhận diện được nếu 1 file `.csv`/`.xlsx` c�
 
 Khi phát hiện nhiều bảng, converter tự xuất **riêng 1 bộ `cues.json` + `.srt`** cho từng bảng, đặt tên file theo đúng mã đó (không còn theo tên file gốc) — dùng thẳng luôn với cơ chế "Mã" ở trên, không cần thêm bước nào. File chỉ có **đúng 1 bảng** (trường hợp phổ biến, mẫu chuẩn) thì không cần dòng mã này, hành vi giữ nguyên như cũ (xuất theo tên file gốc).
 
-Nội dung không thuộc bảng nào (vd phần phụ lục thoại rời ở cuối sheet, không có cột Time Stamp/Player) tự động được bỏ qua, không cần xóa tay trước khi chuyển đổi.
+**File `.xlsx` nhiều SHEET**: converter tự đọc **TẤT CẢ sheet** trong file (không chỉ sheet đang active), mỗi sheet lại có thể chứa nhiều bảng cạnh nhau như trên — không cần tách riêng từng sheet ra file khác trước khi chuyển đổi.
+
+Nội dung không thuộc bảng nào (vd phần phụ lục thoại rời ở cuối sheet, hoặc cả 1 sheet phụ lục riêng không có cột Time Stamp/Player) tự động được bỏ qua, không cần xóa tay trước khi chuyển đổi.
+
+**Bảng lỗi không chặn cả file**: nếu 1 bảng cụ thể có cột "Time Stamp" sai định dạng (vd chỉ ghi 1 mốc thời gian đơn thay vì khoảng start-end, hoặc dùng timecode Giờ:Phút:Giây:Frame) hoặc thiếu dòng mã khi cần, converter **bỏ qua đúng bảng đó** và in rõ lý do ở cuối log — các bảng khác trong cùng file vẫn được chuyển đổi bình thường, không cần sửa hết lỗi rồi mới chạy lại được.
 
 ## Quy trình sử dụng (A → Z)
 
@@ -78,7 +82,7 @@ scripts/Chuyen_Doi_File_Mic_Check.exe --input "duong/dan/file.docx" --out-dir "t
 # hoặc: pip install -r scripts/requirements.txt && python scripts/docx_to_mic_check.py --input ... --out-dir ...
 ```
 
-**Về file `.csv`**: nếu xuất từ Google Sheets/Excel, cột Time Stamp có dấu phẩy trong nội dung (`00:00:01,200 --> ...`) — công cụ export chuẩn sẽ tự bọc dấu ngoặc kép quanh cell đó, không cần chỉnh tay gì thêm. Encoding đọc là UTF-8 (tự bỏ BOM nếu có). Dấu phân cách thời gian chấp nhận cả `-->` (chuẩn SRT) lẫn `→` (mũi tên Unicode, hay gặp khi copy từ Google Sheets).
+**Về file `.csv`**: nếu xuất từ Google Sheets/Excel, cột Time Stamp có dấu phẩy trong nội dung (`00:00:01,200 --> ...`) — công cụ export chuẩn sẽ tự bọc dấu ngoặc kép quanh cell đó, không cần chỉnh tay gì thêm. Encoding đọc là UTF-8 (tự bỏ BOM nếu có). Dấu phân cách thời gian chấp nhận cả `-->` (chuẩn SRT), `→` (mũi tên Unicode, hay gặp khi copy từ Google Sheets), lẫn `-` đơn (vd `00:00 - 00:01`, hay gặp trong file thi đấu thật).
 
 Ảnh nhân vật và video (nếu có) **KHÔNG cần nằm cùng thư mục** với file nguồn — chuẩn bị riêng theo đúng kiến trúc 2-thư-mục ở trên.
 

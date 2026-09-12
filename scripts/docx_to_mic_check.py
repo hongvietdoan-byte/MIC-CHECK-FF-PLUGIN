@@ -49,14 +49,17 @@ for _stream in (sys.stdout, sys.stderr):
 from docx import Document
 from openpyxl import load_workbook
 
-# Chấp nhận cả "-->" (kiểu SRT chuẩn) lẫn "→" (mũi tên Unicode U+2192 — gặp thật trong file export từ
-# Google Sheets, 2026-09-11). Giờ (H) và mili giây (ms) đều TUỲ CHỌN — gặp thật 2 kiểu khác nhau
-# trong cùng ngày: "00:00:00,000 --> 00:00:01,200" (đủ H:M:S,ms) và "00:00 --> 00:01" (chỉ M:S, không
-# giờ không ms). Regex dùng nhóm optional "(?:(\d+):)?" cho giờ + "(?:[,.](\d+))?" cho ms, dựa vào cơ
-# chế backtrack tự nhiên của regex để tự phân biệt đúng M:S,ms với H:M:S (không ms) — không cần đoán
-# thêm logic gì khác.
+# Chấp nhận cả "-->" (kiểu SRT chuẩn), "→" (mũi tên Unicode U+2192 — gặp thật trong file export từ
+# Google Sheets, 2026-09-11), và "-" đơn (gặp thật trong file thi đấu thật, vd "00:00 - 00:01" hoặc
+# "00:00-00:02" không cách — 2026-09-12). "-->" đặt TRƯỚC "-" trong nhóm alternation để ưu tiên khớp
+# đủ 3 ký tự khi có, tránh việc regex chỉ ăn 1 dấu "-" của "-->" rồi kẹt ở ">" (dù có backtrack tự
+# nhiên xử lý được, đặt đúng thứ tự vẫn rõ ràng/nhanh hơn). Giờ (H) và mili giây (ms) đều TUỲ CHỌN —
+# gặp thật 2 kiểu khác nhau trong cùng ngày: "00:00:00,000 --> 00:00:01,200" (đủ H:M:S,ms) và
+# "00:00 --> 00:01" (chỉ M:S, không giờ không ms). Regex dùng nhóm optional "(?:(\d+):)?" cho giờ +
+# "(?:[,.](\d+))?" cho ms, dựa vào cơ chế backtrack tự nhiên của regex để tự phân biệt đúng M:S,ms
+# với H:M:S (không ms) — không cần đoán thêm logic gì khác.
 TIMESTAMP_RE = re.compile(
-    r"(?:(\d+):)?(\d+):(\d+)(?:[,.](\d+))?\s*(?:-->|→)\s*(?:(\d+):)?(\d+):(\d+)(?:[,.](\d+))?"
+    r"(?:(\d+):)?(\d+):(\d+)(?:[,.](\d+))?\s*(?:-->|→|-)\s*(?:(\d+):)?(\d+):(\d+)(?:[,.](\d+))?"
 )
 
 SUPPORTED_EXTENSIONS = (".docx", ".csv", ".xlsx")
