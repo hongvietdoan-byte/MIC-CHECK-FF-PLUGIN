@@ -245,13 +245,19 @@ def extract_cues_for_block(rows, block, table_label=None):
     """Đọc cue cho ĐÚNG 1 block (1 bảng) — dùng col_map/text_columns riêng của block đó, quét TOÀN
     BỘ các dòng sau header (không giới hạn theo block khác) vì mỗi block có cột riêng, các dòng dữ
     liệu của block khác hay dòng nội dung không liên quan (vd phụ lục cuối sheet) sẽ tự bị bỏ qua do
-    cột Time Stamp của block này rỗng/không khớp định dạng — không cần lọc gì thêm."""
+    cột Time Stamp của block này rỗng/không khớp định dạng — không cần lọc gì thêm.
+
+    Trả về (cues, text_labels, row_warnings) — row_warnings là list các dòng dữ liệu BỊ BỎ QUA vì
+    start >= end (giờ bắt đầu không nhỏ hơn giờ kết thúc, vd lỗi gõ tay "00:02 - 00:02") — CHỈ bỏ
+    ĐÚNG dòng đó, KHÔNG huỷ cả bảng, để 1 dòng lỗi không làm mất hết cue hợp lệ khác trong cùng bảng."""
     col_map = block["col_map"]
     text_columns = block["text_columns"]
     text_labels = sorted(text_columns.keys(), key=lambda label: text_columns[label])
 
     cues = []
+    row_warnings = []
     rejected_timestamps = []  # để báo lỗi rõ nếu cuối cùng không ra cue nào nhưng có dòng có vẻ là dữ liệu
+    invalid_ranges = []  # start >= end — cũng để báo lỗi rõ nếu cuối cùng không ra cue nào
     max_col = max(list(col_map.values()) + list(text_columns.values()))
     for row in rows[block["header_row_idx"] + 1:]:
         if len(row) <= max_col:
@@ -271,7 +277,10 @@ def extract_cues_for_block(rows, block, table_label=None):
         start = to_seconds(m.group(1), m.group(2), m.group(3), m.group(4))
         end = to_seconds(m.group(5), m.group(6), m.group(7), m.group(8))
         if start >= end:
-            raise ValueError(f'Cue "{ts_text}": start phải nhỏ hơn end.')
+            if len(invalid_ranges) < 5:
+                invalid_ranges.append(ts_text)
+            row_warnings.append(f'Cue "{ts_text}": start >= end, đã bỏ qua đúng dòng này.')
+            continue  # chỉ bỏ đúng dòng lỗi này, các cue khác trong cùng bảng vẫn giữ nguyên
 
         player = row[col_map["player"]]
         texts = {label: row[text_columns[label]] for label in text_labels}
@@ -295,11 +304,17 @@ def extract_cues_for_block(rows, block, table_label=None):
                 '(vd: 00:00:01,200 --> 00:00:02,500).\n'
                 f"Vài giá trị tìm thấy trong cột Time Stamp (không khớp định dạng):\n{examples}"
             )
+        if invalid_ranges:
+            examples = "\n".join(f'  - "{t}"' for t in invalid_ranges)
+            raise ValueError(
+                f"{prefix}Parse xong nhưng không ra cue nào — mọi dòng có Time Stamp đúng định dạng "
+                f"đều bị start >= end (giờ bắt đầu không nhỏ hơn giờ kết thúc). Vài ví dụ:\n{examples}"
+            )
         raise ValueError(
             f"{prefix}Parse xong nhưng không ra cue nào — cột \"Time Stamp\" trống ở mọi dòng dữ "
             "liệu, kiểm tra lại nội dung bảng."
         )
-    return cues, text_labels
+    return cues, text_labels, row_warnings
 
 
 def parse_tables(path: Path):
@@ -358,14 +373,38 @@ def parse_tables(path: Path):
                         'cần 1 dòng tên riêng (vd "VN-FL-D3-G2 Week 2") ở đúng ô đầu cột của bảng đó '
                         "khi file có nhiều hơn 1 bảng."
                     )
-                cues, text_labels = extract_cues_for_block(rows, block, table_label=table_label)
-                tables.append({"name": name, "sheet": sheet_name, "cues": cues, "text_labels": text_labels})
+                cues, text_labels, row_warnings = extract_cues_for_block(rows, block, table_label=table_label)
+                tables.append({
+                    "name": name, "sheet": sheet_name, "cues": cues, "text_labels": text_labels,
+                    "row_warnings": row_warnings,
+                })
             except ValueError as e:
                 skipped.append((table_label, str(e)))
 
     if not tables:
         reasons = "\n".join(f'  - "{label}": {reason}' for label, reason in skipped)
         raise ValueError(f"Không có bảng nào đọc ra được cue hợp lệ. Chi tiết từng bảng:\n{reasons}")
+
+    # Kiểm tra TRÙNG tên file xuất — 2 bảng khác nhau vô tình cùng "mã" (hoặc cùng không có mã khi
+    # chỉ 1 bảng — không thể xảy ra vì lúc đó luôn đúng 1 phần tử) sẽ ghi đè .cues.json/.srt lẫn nhau
+    # nếu không chặn ở đây. Giữ bảng xuất hiện TRƯỚC, xếp các bảng trùng sau vào "skipped" kèm lý do
+    # rõ ràng — không chặn các bảng khác không liên quan.
+    if len(tables) > 1:
+        seen_bases = {}
+        deduped = []
+        for t in tables:
+            base = sanitize_filename_component(t["name"]) if t["name"] else None
+            if base and base in seen_bases:
+                skipped.append((
+                    t["name"],
+                    f'Trùng tên file xuất ("{base}.cues.json") với bảng "{seen_bases[base]}" — '
+                    "đổi mã bảng này cho khác biệt để tránh ghi đè lẫn nhau."
+                ))
+                continue
+            if base:
+                seen_bases[base] = t["name"]
+            deduped.append(t)
+        tables = deduped
 
     return tables, skipped
 
@@ -483,6 +522,9 @@ def main():
                 srt_path = out_dir / f"{base}_{suffix}.srt"
                 count = write_srt_for_column(cues, label, srt_path)
                 print(f"✅ Đã ghi {srt_path} ({count} dòng phụ đề)")
+
+            for w in table.get("row_warnings", []):
+                print(f"  ⚠️ {w}")
 
         if skipped:
             print(f"\n⚠️ Bỏ qua {len(skipped)} bảng KHÔNG đọc ra được cue (không chặn các bảng khác):")
