@@ -313,7 +313,7 @@ async function insertOrOverwriteClip({ itemName, startSeconds, videoTrackIndex =
 // nhưng KHÔNG loại bỏ hoàn toàn rủi ro; xem README.md mục "Ghi chú / giới hạn đã biết".
 const BATCH_PLACEMENT_DELAY_MS = 150;
 
-async function batchPlaceClips({ placements }, log) {
+async function batchPlaceClips({ placements }, log, onProgress) {
   if (!Array.isArray(placements) || placements.length === 0) {
     throw new Error("Phải truyền placements là mảng không rỗng.");
   }
@@ -337,6 +337,7 @@ async function batchPlaceClips({ placements }, log) {
       failed.push({ index: i, itemName: p.itemName, startSeconds: p.startSeconds, error: err });
       if (log) log(`Placement ${i} LỖI: ${err}`, "warn");
     }
+    if (onProgress) onProgress({ phase: "image", done: i + 1, total: placements.length });
     if (i < placements.length - 1) await sleep(BATCH_PLACEMENT_DELAY_MS);
   }
   return { total: placements.length, placed: results.length, failed };
@@ -544,7 +545,7 @@ async function runMicCheckWorkflow({
   sequenceName,
   orientation = "landscape",
   timebase = 60
-}, log) {
+}, log, onProgress) {
   if (!cuesJsonPath) throw new Error("Phải truyền cuesJsonPath.");
   if (!sequenceName) throw new Error("Phải truyền sequenceName.");
   if (!imagesDir) throw new Error("Phải truyền imagesDir.");
@@ -605,6 +606,7 @@ async function runMicCheckWorkflow({
     } catch (e) {
       videoResults.push({ path: videoPaths[i], name: vName, track: i, error: String(e && e.message || e) });
     }
+    if (onProgress) onProgress({ phase: "video", done: i + 1, total: videoPaths.length });
   }
   const imageVideoTrackIndex = videoPaths.length; // track kế tiếp sau hết video
 
@@ -624,7 +626,7 @@ async function runMicCheckWorkflow({
   // cues.json này đều thiếu ảnh (vd chọn nhầm/chưa có ảnh trong thư mục ảnh dùng chung), không nên
   // để lỗi đó làm gãy cả lần chạy, chỉ cần báo rõ 0 ảnh đặt được qua missingPlayers.
   const placeResult = placements.length > 0
-    ? await batchPlaceClips({ placements }, log)
+    ? await batchPlaceClips({ placements }, log, onProgress)
     : { total: 0, placed: 0, failed: [] };
   placeResult.missingPlayers = missingPlayers;
 
@@ -778,7 +780,7 @@ async function setStaticKeyframe(param, value, atTick) {
   return param.createAddKeyframeAction(kf);
 }
 
-async function applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackIndex }, log) {
+async function applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackIndex }, log, onProgress) {
   if (xPixels == null || yPixels == null || scalePercent == null) {
     throw new Error("Phải truyền xPixels, yPixels, scalePercent.");
   }
@@ -849,6 +851,7 @@ async function applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackInde
       results.push({ index: i, ok: false, error: String(e && e.message || e) });
       if (log) log(`Clip ${i + 1}/${items.length} LỖI: ${e.message}`, "warn");
     }
+    if (onProgress) onProgress({ phase: "layout", done: i + 1, total: items.length });
     if (i < items.length - 1) await sleep(BATCH_PLACEMENT_DELAY_MS);
   }
 

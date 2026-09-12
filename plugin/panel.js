@@ -21,6 +21,25 @@
     return parts.length > 2 ? "…\\" + parts.slice(-2).join("\\") : p;
   }
 
+  // --------------------------------------------------------------------------
+  // Progress bar dùng chung cho mọi thao tác chạy hàng loạt (Chạy Mic Check, Áp vị trí ảnh) — các
+  // hàm trong actions.js gọi onProgress({phase, done, total}) sau MỖI item xử lý xong.
+  // --------------------------------------------------------------------------
+  const PHASE_LABEL = { video: "Video", image: "Ảnh", layout: "Clip" };
+
+  function showProgress() { $("mcProgressWrap").hidden = false; }
+  function hideProgress() {
+    $("mcProgressWrap").hidden = true;
+    $("mcProgressFill").style.width = "0%";
+    $("mcProgressText").textContent = "";
+  }
+  function setProgress(prefix, phase, done, total) {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    $("mcProgressFill").style.width = pct + "%";
+    const label = PHASE_LABEL[phase] || phase;
+    $("mcProgressText").textContent = `${prefix ? prefix + " · " : ""}${label} ${done}/${total} (${pct}%)`;
+  }
+
   $("pluginStatus").textContent = "🟢";
   $("mcVersion").textContent = `v${MIC_CHECK_VERSION}`;
 
@@ -181,8 +200,11 @@
     logLine(`▶ Sẽ chạy ${runs.length} sequence: ${runs.map((r) => r.cuesFile.name).join(", ")}`);
     if (notFoundCodes.length > 0) logLine(`⚠️ Không tìm thấy file khớp các mã: ${notFoundCodes.join(", ")}`);
 
+    showProgress();
     let successCount = 0;
-    for (const run of runs) {
+    for (let runIdx = 0; runIdx < runs.length; runIdx++) {
+      const run = runs[runIdx];
+      const runPrefix = runs.length > 1 ? `Mã ${runIdx + 1}/${runs.length}` : "";
       const stem = run.cuesFile.name.replace(/\.cues\.json$/i, "");
       const sequenceName = run.code || stem;
       logLine(`\n=== ${sequenceName} (${run.cuesFile.name}) ===`);
@@ -199,7 +221,7 @@
           imagesDir: mcState.imagesDirPath,
           sequenceName,
           orientation
-        }, (msg) => logLine("  " + msg));
+        }, (msg) => logLine("  " + msg), (p) => setProgress(runPrefix, p.phase, p.done, p.total));
 
         logLine(`  ✅ "${result.sequenceName}" (${result.actualFps}fps) — ảnh: ${result.images.placed}/${result.totalCues}.`);
         $("mcLayoutTrack").value = result.imageVideoTrackIndex + 1; // +1: đổi từ chỉ số 0-based nội bộ sang số V Premiere hiển thị (V1=1, V2=2...)
@@ -219,6 +241,7 @@
     logLine(`\n== Tổng kết: ${successCount}/${runs.length} sequence tạo thành công. ==`);
     if (notFoundCodes.length > 0) logLine(`Mã không tìm thấy file: ${notFoundCodes.join(", ")}`);
 
+    hideProgress();
     updateButtonsEnabled();
   });
 
@@ -328,8 +351,13 @@
     const videoTrackIndex = vNumber - 1; // Premiere API dùng chỉ số 0-based nội bộ
 
     logLine(`▶ Áp vị trí ảnh: track V${vNumber}, Position=(${xPixels}px, ${yPixels}px), Scale=${scalePercent}%...`);
+    showProgress();
     try {
-      const result = await applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackIndex }, (msg) => logLine("  " + msg));
+      const result = await applyImageLayout(
+        { xPixels, yPixels, scalePercent, videoTrackIndex },
+        (msg) => logLine("  " + msg),
+        (p) => setProgress("", p.phase, p.done, p.total)
+      );
       logLine(`✅ Đã áp cho ${result.applied}/${result.total} clip trên V${vNumber}.`);
       if (result.failed.length > 0) {
         logLine(`⚠️ ${result.failed.length} clip lỗi:`);
@@ -339,6 +367,7 @@
     } catch (e) {
       logLine(`❌ Lỗi: ${e.message}`);
     } finally {
+      hideProgress();
       $("mcLayoutBtn").disabled = false;
     }
   });
