@@ -4,24 +4,31 @@
 <meta charset="UTF-8">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #1e1e21; color: #e4e4e8; font-family: -apple-system, sans-serif;
+  body { background: #1a1a1d; color: #e4e4e8; font-family: -apple-system, sans-serif;
     font-size: 10px; padding: 8px; }
 
-  .head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-  .head b { font-size: 11px; color: #fff; }
+  .head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .head-icon { flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; background: #d9822f;
+    display: flex; align-items: center; justify-content: center; font-size: 11px; }
+  .head b { font-size: 12px; color: #fff; font-weight: 600; }
   .head .dot { font-size: 9px; }
-  .head .subtitle { color: #666; font-size: 9px; margin-left: auto; }
+  .head .subtitle { color: #8a8a92; font-size: 9px; margin-left: auto; background: #2a2a2e;
+    border-radius: 8px; padding: 2px 7px; }
+
+  .card { background: #222225; border: 1px solid #302f34; border-radius: 7px;
+    padding: 8px 9px 9px; margin-bottom: 7px; }
+  .card-label { font-size: 8.5px; letter-spacing: 0.06em; color: #7a7a82; text-transform: uppercase;
+    margin-bottom: 6px; }
 
   .row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+  .row:last-child { margin-bottom: 0; }
   .row label { width: 44px; flex-shrink: 0; color: #999; font-size: 10px; white-space: nowrap; cursor: default; }
   .row .val { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ccc; font-size: 10px; }
 
   .row input[type=text], .row input[type=number], .row select {
-    background: #2a2a2d; color: #e4e4e8; border: 1px solid #555; border-radius: 3px;
+    background: #1a1a1d; color: #e4e4e8; border: 1px solid #444448; border-radius: 3px;
     padding: 2px 6px; font-size: 10px; height: 22px; flex: 1; }
   .row input[type=number].small { flex: 0 0 42px; max-width: 42px; padding: 2px 4px; }
-
-  .section-sep { margin-top: 6px; border-top: 1px solid #333; padding-top: 6px; }
 
   .row select {
     appearance: none; -webkit-appearance: none;
@@ -38,29 +45,29 @@
      định khắp file này. */
   .zone-grid { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
   .zone-row { display: flex; gap: 2px; }
-  .zone-btn { width: 16px; height: 16px; background: #2a2a2d; border: 1px solid #555;
+  .zone-btn { width: 16px; height: 16px; background: #1a1a1d; border: 1px solid #444448;
     border-radius: 2px; cursor: pointer; }
-  .zone-btn:hover { background: #444; }
-  .zone-btn.active { background: #2d6cdf; border-color: #2d6cdf; }
+  .zone-btn:hover { background: #333338; }
+  .zone-btn.active { background: #d9822f; border-color: #d9822f; }
 
-  .info-icon { flex-shrink: 0; width: 14px; height: 14px; border-radius: 50%; background: #333;
-    border: 1px solid #666; color: #aaa; font-size: 9px; line-height: 12px; text-align: center;
+  .info-icon { flex-shrink: 0; width: 14px; height: 14px; border-radius: 50%; background: #2a2a2e;
+    border: 1px solid #555; color: #aaa; font-size: 9px; line-height: 12px; text-align: center;
     cursor: help; }
-  .info-icon:hover { background: #444; color: #ddd; }
+  .info-icon:hover { background: #3a3a40; color: #ddd; }
 
-  button { background: #333; color: #e4e4e8; border: 1px solid #555; border-radius: 3px;
+  button { background: #2a2a2e; color: #e4e4e8; border: 1px solid #444448; border-radius: 4px;
     padding: 2px 8px; font-size: 10px; height: 22px; cursor: pointer; flex-shrink: 0; }
-  button:hover { background: #444; }
-  button.primary { background: #2d6cdf; border-color: #2d6cdf; }
-  button.primary:hover { background: #3a7bf0; }
+  button:hover { background: #37373c; }
+  button.primary { background: #d9822f; border-color: #d9822f; }
+  button.primary:hover { background: #e69440; }
   button:disabled { opacity: 0.5; cursor: default; }
 
-  .actions { display: flex; gap: 5px; margin-top: 4px; margin-bottom: 4px; }
-  .actions button { flex: 1; height: 24px; }
+  .actions { display: flex; gap: 5px; margin-top: 5px; }
+  .actions button { flex: 1; height: 25px; font-weight: 500; }
 
-  .detected { background: #232326; border-radius: 3px; padding: 5px 7px; margin-bottom: 4px;
-    font-size: 9px; color: #aaa; max-height: 110px; overflow-y: auto; }
-  .detected:empty { display: none; padding: 0; margin: 0; }
+  .detected { background: #18181b; border: 1px solid #2c2c30; border-radius: 4px; padding: 5px 7px;
+    margin-bottom: 4px; font-size: 9px; color: #aaa; max-height: 110px; overflow-y: auto; }
+  .detected:empty { display: none; padding: 0; margin: 0; border: 0; }
   .detected-row { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
   .detected-row:last-child { margin-bottom: 0; }
   .detected-icon { width: 12px; flex-shrink: 0; text-align: center; }
@@ -68,86 +75,106 @@
   .warn { color: #e0b846; }
   .err { color: #e06060; }
 
-  #log { margin-top: 4px; max-height: 130px; overflow-y: auto; background: #141416;
-    border-radius: 3px; padding: 5px; font-size: 9px; line-height: 1.45; white-space: pre-wrap; }
+  #log { max-height: 130px; overflow-y: auto; background: #141416; border: 1px solid #2c2c30;
+    border-radius: 6px; padding: 6px 7px; font-size: 9px; line-height: 1.45; white-space: pre-wrap; }
 
-  .progress-wrap { margin-top: 6px; }
+  #log::-webkit-scrollbar, .detected::-webkit-scrollbar { width: 6px; }
+  #log::-webkit-scrollbar-track, .detected::-webkit-scrollbar-track { background: transparent; }
+  #log::-webkit-scrollbar-thumb, .detected::-webkit-scrollbar-thumb { background: #3a3a40; border-radius: 3px; }
+  #log::-webkit-scrollbar-thumb:hover, .detected::-webkit-scrollbar-thumb:hover { background: #4a4a50; }
+
+  .progress-wrap { margin-bottom: 7px; }
   .progress-wrap[hidden] { display: none; }
-  .progress-bar { height: 6px; background: #2a2a2d; border-radius: 3px; overflow: hidden; }
-  .progress-fill { height: 100%; width: 0%; background: #2d6cdf; transition: width 0.15s ease; }
+  .progress-bar { height: 6px; background: #1a1a1d; border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: #d9822f; transition: width 0.15s ease; }
   .progress-text { font-size: 9px; color: #999; margin-top: 2px; }
 </style>
 </head>
 <body>
   <div class="head">
+    <div class="head-icon">🎙</div>
     <b>Mic Check</b><span class="dot" id="pluginStatus">⚫</span>
     <span class="subtitle" id="mcVersion"></span>
   </div>
 
-  <div class="row">
-    <label title="Thư mục ảnh nhân vật dùng chung">Ảnh</label>
-    <span class="val" id="mcImagesPath">(chưa chọn)</span>
-    <button id="mcPickImages">Chọn</button>
-  </div>
-  <div class="row">
-    <label title="Thư mục dữ liệu (cues.json/.srt/video)">Dữ liệu</label>
-    <span class="val" id="mcFolderPath">(chưa chọn)</span>
-    <button id="mcPickFolder">Chọn</button>
-  </div>
-  <div id="mcDetected" class="detected"></div>
-  <div class="row">
-    <label title="Nhiều mã cách nhau bằng dấu ;">Mã</label>
-    <input type="text" id="mcCodes" placeholder="VN-FL-D3-G2; VN-FL-D3-G1">
-  </div>
-  <div class="row">
-    <label>Hướng</label>
-    <select id="mcOrientation">
-      <option value="landscape">Landscape 1920x1080</option>
-      <option value="portrait">Portrait 1080x1920</option>
-    </select>
-  </div>
-  <div class="actions">
-    <button id="mcRunBtn" class="primary" disabled>▶ Chạy Mic Check</button>
-    <button id="mcVerifyBtn" disabled>✓ Verify</button>
+  <div class="card">
+    <div class="card-label">Nguồn dữ liệu</div>
+    <div class="row">
+      <label title="Thư mục ảnh nhân vật dùng chung">Ảnh</label>
+      <span class="val" id="mcImagesPath">(chưa chọn)</span>
+      <button id="mcPickImages">Chọn</button>
+    </div>
+    <div class="row">
+      <label title="Thư mục dữ liệu (cues.json/.srt/video)">Dữ liệu</label>
+      <span class="val" id="mcFolderPath">(chưa chọn)</span>
+      <button id="mcPickFolder">Chọn</button>
+    </div>
+    <div id="mcDetected" class="detected"></div>
+    <div class="row">
+      <label title="Bộ lọc mã file — nhiều mã cách nhau bằng dấu ;">Lọc mã</label>
+      <input type="text" id="mcCodes" placeholder="VN-FL-D3-G2; VN-FL-D3-G1">
+    </div>
   </div>
 
-  <div class="row section-sep">
-    <label title="Số track V hiển thị trên timeline Premiere — vd ảnh nằm ở V2 thì gõ 2">Track</label>
-    <input type="number" id="mcLayoutTrack" class="small" value="2" min="1" step="1">
-    <span style="font-size:9px; color:#666;">(vd V2 → gõ 2, khớp đúng số Premiere hiển thị)</span>
-  </div>
-  <div class="row">
-    <label title="Vị trí Position X/Y — pixel tuyệt đối, GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Position của Premiere">Vị trí</label>
-    <div class="zone-grid" id="mcZoneGrid">
-      <div class="zone-row">
-        <div class="zone-btn" role="button" data-x="0.15" data-y="0.15"></div>
-        <div class="zone-btn" role="button" data-x="0.5" data-y="0.15"></div>
-        <div class="zone-btn" role="button" data-x="0.85" data-y="0.15"></div>
-      </div>
-      <div class="zone-row">
-        <div class="zone-btn" role="button" data-x="0.15" data-y="0.5"></div>
-        <div class="zone-btn active" role="button" data-x="0.5" data-y="0.5"></div>
-        <div class="zone-btn" role="button" data-x="0.85" data-y="0.5"></div>
-      </div>
-      <div class="zone-row">
-        <div class="zone-btn" role="button" data-x="0.15" data-y="0.85"></div>
-        <div class="zone-btn" role="button" data-x="0.5" data-y="0.85"></div>
-        <div class="zone-btn" role="button" data-x="0.85" data-y="0.85"></div>
-      </div>
+  <div class="card">
+    <div class="card-label">Cấu hình tạo sequence</div>
+    <div class="row">
+      <label>Size</label>
+      <select id="mcOrientation">
+        <option value="landscape">Landscape 1920x1080</option>
+        <option value="portrait">Portrait 1080x1920</option>
+      </select>
     </div>
-    <input type="number" id="mcLayoutX" class="small" value="960" step="1">
-    <input type="number" id="mcLayoutY" class="small" value="540" step="1">
+    <div class="row">
+      <label title="Frame rate của sequence — mặc định 60, tự chỉnh lại nếu cần">Fps</label>
+      <input type="number" id="mcFps" class="small" value="60" min="1" step="0.001">
+    </div>
+    <div class="actions">
+      <button id="mcRunBtn" class="primary" disabled>▶ Chạy Mic Check</button>
+      <button id="mcVerifyBtn" disabled>✓ Verify</button>
+    </div>
   </div>
-  <div class="row">
-    <label title="Scale % — GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Scale">Scale %</label>
-    <input type="number" id="mcLayoutScale" class="small" value="100" step="1">
-  </div>
-  <div class="actions">
-    <button id="mcLayoutPickBtn" title="Đọc lại Position/Scale THẬT của clip đang chọn trên timeline (vd sau khi bạn tự kéo tay chỉnh trong Program Monitor) và điền vào ô trên.">Lấy motion từ ảnh đang chọn</button>
-  </div>
-  <div class="actions">
-    <button id="mcLayoutBtn">Áp dụng thay đổi cho ảnh trên track</button>
-    <span class="info-icon" title="Sẽ GHI ĐÈ Position/Scale của TOÀN BỘ ảnh trên track đã chọn bằng đúng số ở trên — kể cả những ảnh bạn đã tự kéo tay chỉnh riêng trước đó. Muốn lấy chuẩn từ 1 ảnh đã chỉnh tay, chọn ảnh đó rồi bấm &quot;Lấy từ ảnh đang chọn&quot; trước.">i</span>
+
+  <div class="card">
+    <div class="card-label">Điều chỉnh vị trí ảnh trên timeline</div>
+    <div class="row">
+      <label title="Số track V hiển thị trên timeline Premiere — vd ảnh nằm ở V2 thì gõ 2">Track</label>
+      <input type="number" id="mcLayoutTrack" class="small" value="2" min="1" step="1">
+      <span style="font-size:9px; color:#666;">(vd V2 → gõ 2)</span>
+    </div>
+    <div class="row">
+      <label title="Vị trí Position X/Y — pixel tuyệt đối, GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Position của Premiere">Vị trí</label>
+      <div class="zone-grid" id="mcZoneGrid">
+        <div class="zone-row">
+          <div class="zone-btn" role="button" data-x="0.15" data-y="0.15"></div>
+          <div class="zone-btn" role="button" data-x="0.5" data-y="0.15"></div>
+          <div class="zone-btn" role="button" data-x="0.85" data-y="0.15"></div>
+        </div>
+        <div class="zone-row">
+          <div class="zone-btn" role="button" data-x="0.15" data-y="0.5"></div>
+          <div class="zone-btn active" role="button" data-x="0.5" data-y="0.5"></div>
+          <div class="zone-btn" role="button" data-x="0.85" data-y="0.5"></div>
+        </div>
+        <div class="zone-row">
+          <div class="zone-btn" role="button" data-x="0.15" data-y="0.85"></div>
+          <div class="zone-btn" role="button" data-x="0.5" data-y="0.85"></div>
+          <div class="zone-btn" role="button" data-x="0.85" data-y="0.85"></div>
+        </div>
+      </div>
+      <input type="number" id="mcLayoutX" class="small" value="960" step="1">
+      <input type="number" id="mcLayoutY" class="small" value="540" step="1">
+    </div>
+    <div class="row">
+      <label title="Scale % — GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Scale">Scale %</label>
+      <input type="number" id="mcLayoutScale" class="small" value="100" step="1">
+    </div>
+    <div class="actions">
+      <button id="mcLayoutPickBtn" title="Đọc lại Position/Scale THẬT của clip đang chọn trên timeline (vd sau khi bạn tự kéo tay chỉnh trong Program Monitor) và điền vào ô trên.">Lấy motion từ ảnh đang chọn</button>
+    </div>
+    <div class="actions">
+      <button id="mcLayoutBtn">Áp dụng thay đổi cho ảnh trên track</button>
+      <span class="info-icon" title="Sẽ GHI ĐÈ Position/Scale của TOÀN BỘ ảnh trên track đã chọn bằng đúng số ở trên — kể cả những ảnh bạn đã tự kéo tay chỉnh riêng trước đó. Muốn lấy chuẩn từ 1 ảnh đã chỉnh tay, chọn ảnh đó rồi bấm &quot;Lấy từ ảnh đang chọn&quot; trước.">i</span>
+    </div>
   </div>
 
   <div class="progress-wrap" id="mcProgressWrap" hidden>

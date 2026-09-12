@@ -8,10 +8,16 @@
 
   function $(id) { return document.getElementById(id); }
 
-  function logLine(msg) {
+  // level: "ok" | "warn" | "err" | undefined — nếu không truyền, tự suy ra từ emoji đầu dòng (✅/⚠️/❌)
+  // vì hầu hết lời gọi logLine() trong file này đã tự gắn sẵn emoji, không cần sửa lại từng chỗ gọi.
+  function logLine(msg, level) {
     const el = $("log");
     const time = new Date().toLocaleTimeString();
-    el.textContent += `[${time}] ${msg}\n`;
+    const cls = level || (msg.includes("✅") ? "ok" : msg.includes("⚠️") ? "warn" : msg.includes("❌") ? "err" : "");
+    const line = document.createElement("div");
+    if (cls) line.className = cls;
+    line.textContent = `[${time}] ${msg}`;
+    el.appendChild(line);
     el.scrollTop = el.scrollHeight;
   }
 
@@ -168,6 +174,12 @@
     $("mcRunBtn").disabled = true;
     $("mcVerifyBtn").disabled = true;
     const orientation = $("mcOrientation").value;
+    const fpsRaw = parseFloat($("mcFps").value);
+    if (Number.isNaN(fpsRaw) || fpsRaw <= 0) {
+      logLine("❌ Fps phải là số hợp lệ (> 0).");
+      updateButtonsEnabled();
+      return;
+    }
     const codesRaw = $("mcCodes").value.trim();
     const codes = codesRaw ? codesRaw.split(";").map((c) => c.trim()).filter(Boolean) : [];
 
@@ -220,8 +232,9 @@
           videoPaths: videoFiles,
           imagesDir: mcState.imagesDirPath,
           sequenceName,
-          orientation
-        }, (msg) => logLine("  " + msg), (p) => setProgress(runPrefix, p.phase, p.done, p.total));
+          orientation,
+          timebase: fpsRaw
+        }, (msg, level) => logLine("  " + msg, level), (p) => setProgress(runPrefix, p.phase, p.done, p.total));
 
         logLine(`  ✅ "${result.sequenceName}" (${result.actualFps}fps) — ảnh: ${result.images.placed}/${result.totalCues}.`);
         $("mcLayoutTrack").value = result.imageVideoTrackIndex + 1; // +1: đổi từ chỉ số 0-based nội bộ sang số V Premiere hiển thị (V1=1, V2=2...)
@@ -323,7 +336,7 @@
   $("mcLayoutPickBtn").addEventListener("click", async () => {
     $("mcLayoutPickBtn").disabled = true;
     try {
-      const layout = await readSelectedClipLayout((msg) => logLine("  " + msg));
+      const layout = await readSelectedClipLayout((msg, level) => logLine("  " + msg, level));
       $("mcLayoutX").value = layout.xPixels;
       $("mcLayoutY").value = layout.yPixels;
       $("mcLayoutScale").value = layout.scalePercent;
@@ -355,7 +368,7 @@
     try {
       const result = await applyImageLayout(
         { xPixels, yPixels, scalePercent, videoTrackIndex },
-        (msg) => logLine("  " + msg),
+        (msg, level) => logLine("  " + msg, level),
         (p) => setProgress("", p.phase, p.done, p.total)
       );
       logLine(`✅ Đã áp cho ${result.applied}/${result.total} clip trên V${vNumber}.`);

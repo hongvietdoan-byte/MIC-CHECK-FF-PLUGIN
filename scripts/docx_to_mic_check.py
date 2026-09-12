@@ -47,7 +47,8 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 from docx import Document
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font
 
 # Chấp nhận cả "-->" (kiểu SRT chuẩn), "→" (mũi tên Unicode U+2192 — gặp thật trong file export từ
 # Google Sheets, 2026-09-11), và "-" đơn (gặp thật trong file thi đấu thật, vd "00:00 - 00:01" hoặc
@@ -319,13 +320,15 @@ def extract_cues_for_block(rows, block, table_label=None):
 
 def parse_tables(path: Path):
     """Đọc TOÀN BỘ bảng cue trong file — kể cả nhiều SHEET (.xlsx) và nhiều bảng cạnh nhau trong mỗi
-    sheet — trả về (tables, skipped):
+    sheet — trả về (tables, skipped, report_rows):
     - tables: list bảng đọc THÀNH CÔNG, mỗi phần tử {"name": <mã bảng, None nếu cả file chỉ có đúng 1
       bảng duy nhất>, "sheet": <tên sheet, None nếu không phải .xlsx>, "cues": [...], "text_labels": [...]}
     - skipped: list (label, lý do) các bảng TÌM THẤY header hợp lệ nhưng KHÔNG đọc ra được cue (vd cột
       "Time Stamp" ghi timecode 1 mốc "01:03:36:04" thay vì khoảng "start --> end", hoặc thiếu dòng
       "mã"/tên khi file có nhiều bảng) — chủ động BỎ QUA bảng đó, KHÔNG dừng cả file, để các bảng khác
       vẫn ra kết quả bình thường; báo lại rõ ràng ở cuối cho user tự xử lý riêng bảng lỗi.
+    - report_rows: MỌI block tìm thấy (cả OK lẫn SKIP) — dùng để ghi file QC Report .xlsx ở main() khi
+      có ít nhất 1 SKIP; không dùng để quyết định logic gì khác trong hàm này.
 
     Cả FILE chỉ có ĐÚNG 1 bảng duy nhất (trường hợp phổ biến nhất, mẫu chuẩn — 1 sheet, không nhiều
     bảng) → "name" = None, giữ nguyên hành vi cũ (xuất file theo tên file gốc, không đòi hỏi dòng tên
@@ -359,12 +362,12 @@ def parse_tables(path: Path):
 
     tables = []
     skipped = []  # [(label, reason)]
+    report_rows = []  # [{sheet, name, col_range, status, cue_count, text_labels, reason}] — mọi block, kể cả OK
     for sheet_name, rows, blocks in per_sheet_blocks:
         for block in blocks:
             name = block_table_name(rows, block) if total_blocks > 1 else None
-            fallback_label = f'cột {block["col_start"] + 1}-{block["col_end"] + 1}' + (
-                f' (sheet "{sheet_name}")' if sheet_name else ""
-            )
+            col_range = f'{block["col_start"] + 1}-{block["col_end"] + 1}'
+            fallback_label = f"cột {col_range}" + (f' (sheet "{sheet_name}")' if sheet_name else "")
             table_label = name or sheet_name or fallback_label
             try:
                 if total_blocks > 1 and not name:
@@ -378,8 +381,16 @@ def parse_tables(path: Path):
                     "name": name, "sheet": sheet_name, "cues": cues, "text_labels": text_labels,
                     "row_warnings": row_warnings,
                 })
+                report_rows.append({
+                    "sheet": sheet_name, "name": name, "col_range": col_range, "status": "OK",
+                    "cue_count": len(cues), "text_labels": ", ".join(text_labels), "reason": None,
+                })
             except ValueError as e:
                 skipped.append((table_label, str(e)))
+                report_rows.append({
+                    "sheet": sheet_name, "name": name, "col_range": col_range, "status": "SKIP",
+                    "cue_count": None, "text_labels": None, "reason": str(e),
+                })
 
     if not tables:
         reasons = "\n".join(f'  - "{label}": {reason}' for label, reason in skipped)
@@ -395,18 +406,23 @@ def parse_tables(path: Path):
         for t in tables:
             base = sanitize_filename_component(t["name"]) if t["name"] else None
             if base and base in seen_bases:
-                skipped.append((
-                    t["name"],
+                dup_reason = (
                     f'Trùng tên file xuất ("{base}.cues.json") với bảng "{seen_bases[base]}" — '
                     "đổi mã bảng này cho khác biệt để tránh ghi đè lẫn nhau."
-                ))
+                )
+                skipped.append((t["name"], dup_reason))
+                for r in report_rows:
+                    if r["status"] == "OK" and r["name"] == t["name"] and r["sheet"] == t["sheet"]:
+                        r["status"] = "SKIP"
+                        r["reason"] = dup_reason
+                        break
                 continue
             if base:
                 seen_bases[base] = t["name"]
             deduped.append(t)
         tables = deduped
 
-    return tables, skipped
+    return tables, skipped, report_rows
 
 
 def format_srt_timestamp(seconds: float) -> str:
@@ -436,9 +452,34 @@ def write_srt_for_column(cues, label: str, srt_path: Path) -> int:
     return count
 
 
+def write_qc_report(report_rows, report_path: Path) -> None:
+    """Ghi file QC Report .xlsx — CHỈ gọi khi có ít nhất 1 bảng SKIP (xem main()). Liệt kê MỌI bảng
+    tìm thấy (cả OK) để người xem đối chiếu số cue/cột phụ đề của các bảng chạy tốt, không chỉ mỗi
+    bảng lỗi — hữu ích khi báo cáo lại cho người khác không trực tiếp chạy script."""
+    ok_count = sum(1 for r in report_rows if r["status"] == "OK")
+    skip_count = sum(1 for r in report_rows if r["status"] == "SKIP")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "QC Report"
+    ws.append([f"Tổng: {len(report_rows)} bảng — {ok_count} OK, {skip_count} SKIP", None, None, None, None, None, None])
+    ws.append(["Sheet", "Mã bảng", "Vị trí cột", "Trạng thái", "Số cue", "Cột phụ đề", "Lý do lỗi"])
+    for r in report_rows:
+        status = "✅ OK" if r["status"] == "OK" else "❌ SKIP"
+        ws.append([r["sheet"], r["name"], r["col_range"], status, r["cue_count"], r["text_labels"], r["reason"]])
+    ws["A1"].font = Font(bold=True)
+    ws["A2"].font = Font(bold=True)
+    for col, width in zip("ABCDEFG", [16, 32, 12, 10, 8, 14, 90]):
+        ws.column_dimensions[col].width = width
+    for row in ws.iter_rows(min_row=3):
+        cell = row[6]
+        cell.alignment = cell.alignment.copy(wrapText=True)
+    wb.save(report_path)
+
+
 # Dùng CHUNG 1 số version với plugin (mic-check-plugin/plugin/manifest.json) cho cả gói Mic Check —
 # bump cả 2 cùng lúc mỗi khi có thay đổi người dùng cuối nhìn thấy, để chỉ cần nhớ đúng 1 con số.
-MIC_CHECK_VERSION = "1.5.0"
+MIC_CHECK_VERSION = "1.6.0"
 
 BANNER = (
     "===============================================\n"
@@ -492,7 +533,7 @@ def main():
 
     try:
         print(f"Đọc: {input_path}")
-        tables, skipped = parse_tables(input_path)
+        tables, skipped, report_rows = parse_tables(input_path)
         if len(tables) > 1:
             print(f"Phát hiện {len(tables)} bảng đọc được, mỗi bảng xuất riêng 1 bộ file:")
 
@@ -530,6 +571,10 @@ def main():
             print(f"\n⚠️ Bỏ qua {len(skipped)} bảng KHÔNG đọc ra được cue (không chặn các bảng khác):")
             for label, reason in skipped:
                 print(f'  - "{label}": {reason}')
+
+            report_path = out_dir / f"QC_Report_{stem}.xlsx"
+            write_qc_report(report_rows, report_path)
+            print(f"\n📋 Đã ghi {report_path} (chỉ xuất khi có bảng bị bỏ qua) — xem chi tiết từng bảng OK/SKIP.")
 
         print(f'\n✅ Xong! Mo panel "Mic Check" trong Premiere, bam "Chon" chon dung thu muc du lieu:\n   {out_dir}')
     except Exception as e:
