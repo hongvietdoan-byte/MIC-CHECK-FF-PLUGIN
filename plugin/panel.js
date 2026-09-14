@@ -121,13 +121,30 @@
     rows.push(`<div class="detected-row"><span class="detected-icon ${c ? "ok" : "err"}">${c ? "✓" : "✕"}</span>
       <span>${c} file cues.json, ${s} file .srt, ${v} file video trong thư mục.</span></div>`);
     if (c > 1) {
-      const shown = mcState.cuesCandidates.slice(0, 15).map((f) => "• " + f.name.replace(/\.cues\.json$/i, ""));
-      const more = c > 15 ? `<br>... và ${c - 15} file khác` : "";
+      const shown = mcState.cuesCandidates.slice(0, 15);
+      const chips = shown.map((f) => {
+        const code = f.name.replace(/\.cues\.json$/i, "");
+        const escaped = code.replace(/"/g, "&quot;");
+        return `<span class="code-chip" role="button" data-code="${escaped}" title="Bấm để thêm vào ô Lọc mã">${code}</span>`;
+      });
+      const more = c > 15 ? `<span style="color:#666">... và ${c - 15} file khác</span>` : "";
       rows.push(`<div class="detected-row" style="align-items:flex-start"><span class="detected-icon warn">?</span>
-        <span style="white-space:normal">Nhiều file — nhập Mã để chọn đúng:<br>${shown.join("<br>")}${more}</span></div>`);
+        <span style="white-space:normal">Nhiều file — bấm mã để thêm vào ô "Lọc mã" bên dưới (để trống = chạy tất cả):<br>
+        <span class="code-chip-list">${chips.join("")}${more}</span></span></div>`);
     }
     el.innerHTML = rows.join("");
   }
+
+  // Click 1 mã trong danh sách phát hiện → thêm vào ô "Lọc mã" (nối bằng ";", không thêm trùng) —
+  // đỡ phải gõ tay từng mã dài. Event delegation vì renderDetected() luôn tạo lại DOM mới.
+  $("mcDetected").addEventListener("click", (ev) => {
+    const chip = ev.target.closest(".code-chip");
+    if (!chip) return;
+    const code = chip.dataset.code;
+    const current = $("mcCodes").value.split(";").map((c) => c.trim()).filter(Boolean);
+    if (!current.includes(code)) current.push(code);
+    $("mcCodes").value = current.join("; ");
+  });
 
   $("mcPickFolder").addEventListener("click", async () => {
     let folderEntry;
@@ -204,9 +221,10 @@
       updateButtonsEnabled();
       return;
     } else {
-      logLine(`❌ Có ${mcState.cuesCandidates.length} file cues.json trong thư mục — nhập Mã để chọn đúng file (cách nhau bằng ";" nếu chạy nhiều).`);
-      updateButtonsEnabled();
-      return;
+      // Bỏ trống ô "Lọc mã" + nhiều file cues.json → mặc định chạy TẤT CẢ (thay vì bắt buộc nhập mã),
+      // vì thư mục dữ liệu người dùng đã tự chọn coi như đã lọc đúng phạm vi cần chạy.
+      for (const f of mcState.cuesCandidates) runs.push({ cuesFile: f, code: null });
+      logLine(`ℹ️ Không nhập "Lọc mã" — mặc định chạy tất cả ${runs.length} file cues.json tìm thấy.`);
     }
 
     logLine(`▶ Sẽ chạy ${runs.length} sequence: ${runs.map((r) => r.cuesFile.name).join(", ")}`);
