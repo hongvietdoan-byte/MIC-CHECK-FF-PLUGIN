@@ -14,7 +14,7 @@ const uxpFormats = require("uxp").storage.formats;
 
 // Nguồn duy nhất cho số phiên bản hiển thị trên panel — phải khớp "version" trong manifest.json
 // và hậu tố tên file MicCheck_v<version>.ccx mỗi lần build/release (xem README.md).
-const MIC_CHECK_VERSION = "1.11.0";
+const MIC_CHECK_VERSION = "1.12.0";
 
 // ----------------------------------------------------------------------------
 // Helpers dùng chung
@@ -155,61 +155,88 @@ async function findExistingItemAtPosition(track, itemName, desiredSeconds) {
 // Import media
 // ----------------------------------------------------------------------------
 
-// ⚠️ 2026-09-15: HIỆN KHÔNG ĐƯỢC GỌI NỮA — live-test thật trên Premiere của user cho thấy hàm này
-// (hoặc createBinAction() nói riêng) gây import ảnh/srt thất bại HOÀN TOÀN (không tạo được bin nào,
-// không đặt được clip nào lên timeline), dù cùng pattern này từng được ghi là "live-tested" ở dự án
-// Premiere MCP anh em. Chưa xác định được nguyên nhân thật (nghi executeTransaction thất bại âm thầm
-// khiến targetBin trả về là tham chiếu hỏng). Giữ lại hàm để tham khảo/debug tiếp sau, KHÔNG gọi lại
-// cho tới khi có ai đó live-test xác nhận sửa được — xem chỗ gọi importFilesToProject() bên dưới.
-async function findOrCreateBin(project, rootItem, name) {
+// 2026-09-15: v1.8.0 gọi hàm này rồi import thất bại HOÀN TOÀN trên máy user (không tạo được bin,
+// không đặt được clip nào) — đã revert ở v1.11.0. Giờ thử lại có 2 thay đổi quan trọng so với trước:
+// (1) log chi tiết TỪNG bước (đánh dấu "[debug-bin]") để lần chạy tới biết chính xác gãy ở đâu thay
+// vì đoán mò; (2) importFilesToProject() bọc try/catch quanh việc gọi hàm này — nếu tạo/tìm bin lỗi
+// bất kỳ kiểu gì, tự động fallback về import thẳng root (KHÔNG để mất ảnh/srt như lần trước).
+async function findOrCreateBin(project, rootItem, name, log) {
   const items = (await rootItem.getItems()) || [];
+  const itemNames = [];
   for (const child of items) {
     let childName = null;
-    try { childName = child.name || (await child.getName()); } catch {}
-    if (childName === name) return child;
+    try { childName = child.name || (await child.getName()); } catch (e) {
+      if (log) log(`  [debug-bin] lỗi đọc tên 1 item ở root: ${e.message}`, "warn");
+    }
+    itemNames.push(childName);
+    if (childName === name) {
+      if (log) log(`  [debug-bin] tìm thấy item trùng tên "${name}" có sẵn ở root — dùng lại làm bin.`);
+      return child;
+    }
   }
+  if (log) log(`  [debug-bin] root hiện có ${items.length} item: [${itemNames.join(", ")}]. Không thấy "${name}" → tạo mới.`);
 
-  const parentFolder = (typeof rootItem.createBinAction === "function")
-    ? rootItem
-    : ppro.FolderItem.cast(rootItem);
+  const hasOwnCreateBinAction = typeof rootItem.createBinAction === "function";
+  const parentFolder = hasOwnCreateBinAction ? rootItem : ppro.FolderItem.cast(rootItem);
+  if (log) {
+    log(`  [debug-bin] rootItem.createBinAction tồn tại trực tiếp? ${hasOwnCreateBinAction}. `
+      + `Sau cast FolderItem: ${parentFolder ? "có object" : "null"}, `
+      + `có createBinAction? ${!!(parentFolder && typeof parentFolder.createBinAction === "function")}.`);
+  }
   if (!parentFolder || typeof parentFolder.createBinAction !== "function") {
-    throw new Error(`Không lấy được FolderItem hợp lệ để tạo bin "${name}".`);
+    throw new Error(`Không lấy được FolderItem hợp lệ để tạo bin "${name}" (createBinAction không tồn tại trên cả rootItem lẫn sau khi cast).`);
   }
 
   let ok;
+  let createdAction = null;
   await project.lockedAccess(() => {
     ok = project.executeTransaction((compoundAction) => {
-      compoundAction.addAction(parentFolder.createBinAction(name, false));
+      createdAction = parentFolder.createBinAction(name, false);
+      if (log) log(`  [debug-bin] createBinAction("${name}", false) trả về: ${createdAction ? "object" : String(createdAction)}.`);
+      compoundAction.addAction(createdAction);
     }, `Tạo bin "${name}"`);
   });
+  if (log) log(`  [debug-bin] executeTransaction() trả về: ${ok}.`);
   if (!ok) throw new Error(`executeTransaction trả về false khi tạo bin "${name}".`);
 
   const afterItems = (await rootItem.getItems()) || [];
+  const afterNames = [];
   for (const child of afterItems) {
     let childName = null;
     try { childName = child.name || (await child.getName()); } catch {}
+    afterNames.push(childName);
     if (childName === name) return child;
   }
-  throw new Error(`Đã tạo bin "${name}" nhưng không tìm lại được trong Project panel.`);
+  if (log) log(`  [debug-bin] SAU khi tạo, root có ${afterItems.length} item: [${afterNames.join(", ")}] — không thấy "${name}" trong đó.`, "warn");
+  throw new Error(`Đã tạo bin "${name}" (executeTransaction ok=true) nhưng không tìm lại được trong Project panel.`);
 }
 
-async function importFilesToProject({ paths, binName }) {
+async function importFilesToProject({ paths, binName }, log) {
   if (!paths || paths.length === 0) throw new Error("Phải truyền ít nhất 1 đường dẫn file.");
   const project = await ppro.Project.getActiveProject();
   if (!project) throw new Error("Không tìm thấy project đang mở.");
 
   let targetBin = null;
+  let actualBinName = "root";
   if (binName) {
-    const rootItem = await project.getRootItem();
-    targetBin = await findOrCreateBin(project, rootItem, binName);
+    try {
+      const rootItem = await project.getRootItem();
+      targetBin = await findOrCreateBin(project, rootItem, binName, log);
+      actualBinName = binName;
+    } catch (e) {
+      // Không để lỗi tạo/tìm bin làm mất luôn cả ảnh/srt như lần trước — fallback về import root.
+      if (log) log(`⚠️ Không tạo/tìm được bin "${binName}" (${e.message}) — import thẳng vào root Project panel thay thế.`, "warn");
+      targetBin = null;
+    }
   }
 
   try {
     const ok = await project.importFiles(paths, true, targetBin, false);
+    if (log) log(`  [debug-import] project.importFiles() trả về: ${ok}, đích: ${actualBinName}.`);
     return {
       imported: paths.map((p) => ({ path: p, name: p.split(/[\\/]/).pop() })),
       skipped: [],
-      binName: binName || "root",
+      binName: actualBinName,
       ok
     };
   } catch (e) {
@@ -621,15 +648,11 @@ async function runMicCheckWorkflow({
     ...srtPaths,
     ...[...resolvedImagePaths.values()]
   ];
-  // 2026-09-15 REVERT: findOrCreateBin()/binName gây lỗi thật trên Premiere của user — plugin KHÔNG
-  // tạo được bin nào cả (bin "Bin" trong Project panel của user là do user tự tạo tay để làm mẫu,
-  // không phải do plugin), và TOÀN BỘ ảnh/srt import còn thất bại theo (mọi placement báo "Không tìm
-  // thấy item trong Project panel"). Nghi createBinAction()/executeTransaction thất bại âm thầm rồi
-  // targetBin trả về là 1 tham chiếu hỏng, khiến project.importFiles() không đặt được gì vào đâu cả.
-  // Chưa debug trực tiếp được trên máy user nên revert về import thẳng root (cách cũ đã ổn định
-  // trước v1.8.0) để không chặn workflow chính — không đoán tiếp thêm fix nào khác cho bin.
-  if (log) log(`Import ${allPaths.length} file media...`);
-  const importResult = await importFilesToProject({ paths: allPaths });
+  // 2026-09-15: lần trước (v1.8.0) gọi binName làm mất luôn cả ảnh/srt trên máy user, đã revert ở
+  // v1.11.0. Thử lại có log "[debug-bin]"/"[debug-import]" chi tiết + fallback về root nếu bin lỗi
+  // (xem findOrCreateBin/importFilesToProject) — nếu vẫn lỗi, log lần này sẽ chỉ đúng chỗ gãy.
+  if (log) log(`Import ${allPaths.length} file media vào bin "${sequenceName}"...`);
+  const importResult = await importFilesToProject({ paths: allPaths, binName: sequenceName }, log);
 
   // Mỗi video khớp mã đi lên 1 track riêng (V1, V2, ...) để không đè/trồng chéo nếu 1 mã khớp nhiều
   // video (vd nhiều góc quay). Ảnh nhân vật luôn đặt ở track NGAY SAU toàn bộ video đã đặt.
