@@ -14,7 +14,7 @@ const uxpFormats = require("uxp").storage.formats;
 
 // Nguồn duy nhất cho số phiên bản hiển thị trên panel — phải khớp "version" trong manifest.json
 // và hậu tố tên file MicCheck_v<version>.ccx mỗi lần build/release (xem README.md).
-const MIC_CHECK_VERSION = "1.12.0";
+const MIC_CHECK_VERSION = "1.12.1";
 
 // ----------------------------------------------------------------------------
 // Helpers dùng chung
@@ -481,6 +481,18 @@ async function createSequence({ name, timebase = 60, frameWidth, frameHeight }) 
   const before = await project.getSequences();
   const beforeNames = new Set();
   for (const s of (before || [])) { try { beforeNames.add(s.name || (await s.getName())); } catch {} }
+
+  // 2026-09-15: phát hiện qua live-test thật — nếu project ĐÃ có sẵn 1 sequence trùng tên (vd còn sót
+  // lại từ lần chạy lỗi trước), project.createSequence(name) có vẻ không tạo mới gì cả (hoặc Premiere
+  // chỉ chuyển sang sequence có sẵn) khiến bước so sánh trước/sau phía dưới không tìm thấy tên mới,
+  // báo lỗi generic khó hiểu ("không xác nhận được tạo thành công"). Chặn sớm với thông báo rõ ràng để
+  // user biết cần xoá/đổi tên sequence trùng trước, thay vì đoán.
+  if (beforeNames.has(name)) {
+    throw new Error(
+      `Project đã có sẵn 1 sequence tên "${name}" — Premiere không tạo sequence mới khi trùng tên `
+      + "(hoặc chỉ chuyển sang sequence có sẵn). Xoá hoặc đổi tên sequence đó trong Project panel rồi chạy lại."
+    );
+  }
 
   await project.createSequence(name);
 
