@@ -14,7 +14,7 @@ const uxpFormats = require("uxp").storage.formats;
 
 // Nguồn duy nhất cho số phiên bản hiển thị trên panel — phải khớp "version" trong manifest.json
 // và hậu tố tên file MicCheck_v<version>.ccx mỗi lần build/release (xem README.md).
-const MIC_CHECK_VERSION = "1.13.0";
+const MIC_CHECK_VERSION = "1.13.1";
 
 // ----------------------------------------------------------------------------
 // Helpers dùng chung
@@ -224,6 +224,30 @@ async function findOrCreateBin(project, rootItem, name, log) {
   }
   if (log) log(`  [debug-bin] SAU khi tạo, root có các bin: [${afterFolderNames.join(", ")}] — không thấy bin nào MỚI so với trước.`, "warn");
   throw new Error(`Đã tạo bin "${name}" (executeTransaction ok=true) nhưng không tìm lại được bin mới trong Project panel.`);
+}
+
+// 2026-09-15: bug y hệt kiểu "trùng tên nhầm loại" như findOrCreateBin — bin và sequence CỐ TÌNH
+// cùng tên (= sequenceName), nên tìm project item của sequence bằng findProjectItemByName() (chỉ so
+// tên) có thể khớp NHẦM sang chính cái bin (thấy trước trong danh sách), rồi "di chuyển bin vào
+// chính nó" — executeTransaction vẫn trả true nhưng không làm gì hữu ích, sequence không hề nhúc
+// nhích. Hàm này loại trừ FolderItem khi tìm, chỉ nhận item KHÔNG PHẢI bin.
+async function findNonFolderItemByName(rootItem, name) {
+  const items = (await rootItem.getItems()) || [];
+  for (const child of items) {
+    let childName = null;
+    try { childName = child.name; } catch {}
+    if (childName !== name) continue;
+    const folder = await isFolderItem(child);
+    if (!folder) return child; // đúng item cần tìm — cùng tên nhưng KHÔNG phải bin
+  }
+  for (const child of items) {
+    const folder = await isFolderItem(child);
+    if (folder) {
+      const found = await findNonFolderItemByName(folder, name);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 // Di chuyển 1 ProjectItem (vd chính item đại diện cho sequence vừa tạo) vào 1 bin — dùng để gom
@@ -691,8 +715,9 @@ async function runMicCheckWorkflow({
 
   if (targetBin) {
     try {
-      const seqItem = await findProjectItemByName(project, seqResult.name);
-      if (!seqItem) throw new Error("không tìm thấy project item của sequence vừa tạo.");
+      const seqItem = await findNonFolderItemByName(rootItem, seqResult.name);
+      if (!seqItem) throw new Error("không tìm thấy project item của sequence vừa tạo (loại trừ bin cùng tên).");
+      if (log) log(`  [debug-bin] tìm thấy project item của sequence (đã loại trừ bin cùng tên) — tiến hành di chuyển.`);
       await moveItemIntoBin(project, rootItem, seqItem, targetBin, log);
       if (log) log(`  Đã chuyển sequence "${seqResult.name}" vào bin "${sequenceName}".`);
     } catch (e) {
