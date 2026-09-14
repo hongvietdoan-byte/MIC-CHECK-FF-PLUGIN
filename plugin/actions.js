@@ -14,7 +14,7 @@ const uxpFormats = require("uxp").storage.formats;
 
 // Nguồn duy nhất cho số phiên bản hiển thị trên panel — phải khớp "version" trong manifest.json
 // và hậu tố tên file MicCheck_v<version>.ccx mỗi lần build/release (xem README.md).
-const MIC_CHECK_VERSION = "1.13.1";
+const MIC_CHECK_VERSION = "1.14.0";
 
 // ----------------------------------------------------------------------------
 // Helpers dùng chung
@@ -155,16 +155,10 @@ async function findExistingItemAtPosition(track, itemName, desiredSeconds) {
 // Import media
 // ----------------------------------------------------------------------------
 
-// 2026-09-15: v1.8.0 gọi hàm này rồi import thất bại HOÀN TOÀN trên máy user — đã revert ở v1.11.0,
-// thử lại có log ở v1.12.0. Log thật (v1.12.x) lộ ra NGUYÊN NHÂN THẬT: hàm CŨ chỉ so tên, không kiểm
-// tra LOẠI item — sequence vừa tạo (createSequence chạy TRƯỚC hàm này trong runMicCheckWorkflow) có
-// tên TRÙNG với bin cần tạo (cùng = sequenceName), nên bị nhầm là "bin có sẵn", trả về chính cái
-// sequence đó làm targetBin. project.importFiles(paths, true, targetBin, false) nhận 1 sequence
-// (không phải folder thật) → Premiere báo ok:true nhưng không đặt được file nào vào đâu cả (đúng như
-// log user gửi: "Placement 0 LỖI: Không tìm thấy item...").
-// FIX: dùng ppro.FolderItem.cast() để lọc ĐÚNG loại FolderItem khi tìm bin có sẵn (không match
-// sequence/clip cùng tên nữa), và khi verify bin mới tạo thì diff theo TÊN BIN chưa từng xuất hiện
-// trước đó (không chỉ so tên name=target — phòng khi Premiere tự đổi tên bin do trùng tên sequence).
+// Tạo/tìm 1 bin theo tên — dùng ppro.FolderItem.cast() để lọc ĐÚNG loại FolderItem (không match nhầm
+// sequence/clip cùng tên, xem findNonFolderItemByName bên dưới cho lý do). Khi verify bin mới tạo,
+// diff theo TÊN BIN chưa từng xuất hiện trước đó thay vì chỉ so name=target, phòng khi Premiere tự
+// đổi tên bin do trùng tên sequence.
 async function isFolderItem(item) {
   try { return (await ppro.FolderItem.cast(item)) || null; } catch { return null; }
 }
@@ -174,63 +168,41 @@ async function findOrCreateBin(project, rootItem, name, log) {
   const beforeFolderNames = new Set();
   for (const child of items) {
     let childName = null;
-    try { childName = child.name || (await child.getName()); } catch (e) {
-      if (log) log(`  [debug-bin] lỗi đọc tên 1 item ở root: ${e.message}`, "warn");
-    }
+    try { childName = child.name || (await child.getName()); } catch {}
     const folder = await isFolderItem(child);
     if (!folder) continue; // bỏ qua item không phải bin thật (sequence/clip trùng tên KHÔNG được tính)
     beforeFolderNames.add(childName);
-    if (childName === name) {
-      if (log) log(`  [debug-bin] tìm thấy BIN (đúng loại FolderItem) trùng tên "${name}" có sẵn — dùng lại.`);
-      return folder;
-    }
+    if (childName === name) return folder;
   }
-  if (log) log(`  [debug-bin] root có ${items.length} item, trong đó bin thật: [${[...beforeFolderNames].join(", ")}]. Không thấy bin "${name}" → tạo mới.`);
 
-  const hasOwnCreateBinAction = typeof rootItem.createBinAction === "function";
-  const parentFolder = hasOwnCreateBinAction ? rootItem : ppro.FolderItem.cast(rootItem);
-  if (log) {
-    log(`  [debug-bin] rootItem.createBinAction tồn tại trực tiếp? ${hasOwnCreateBinAction}. `
-      + `Sau cast FolderItem: ${parentFolder ? "có object" : "null"}, `
-      + `có createBinAction? ${!!(parentFolder && typeof parentFolder.createBinAction === "function")}.`);
-  }
+  const parentFolder = (typeof rootItem.createBinAction === "function") ? rootItem : ppro.FolderItem.cast(rootItem);
   if (!parentFolder || typeof parentFolder.createBinAction !== "function") {
-    throw new Error(`Không lấy được FolderItem hợp lệ để tạo bin "${name}" (createBinAction không tồn tại trên cả rootItem lẫn sau khi cast).`);
+    throw new Error(`Không lấy được FolderItem hợp lệ để tạo bin "${name}".`);
   }
 
   let ok;
   await project.lockedAccess(() => {
     ok = project.executeTransaction((compoundAction) => {
-      const createdAction = parentFolder.createBinAction(name, false);
-      if (log) log(`  [debug-bin] createBinAction("${name}", false) trả về: ${createdAction ? "object" : String(createdAction)}.`);
-      compoundAction.addAction(createdAction);
+      compoundAction.addAction(parentFolder.createBinAction(name, false));
     }, `Tạo bin "${name}"`);
   });
-  if (log) log(`  [debug-bin] executeTransaction() trả về: ${ok}.`);
   if (!ok) throw new Error(`executeTransaction trả về false khi tạo bin "${name}".`);
 
   const afterItems = (await rootItem.getItems()) || [];
-  const afterFolderNames = [];
   for (const child of afterItems) {
     const folder = await isFolderItem(child);
     if (!folder) continue;
     let childName = null;
     try { childName = child.name || (await child.getName()); } catch {}
-    afterFolderNames.push(childName);
-    if (!beforeFolderNames.has(childName)) {
-      if (log) log(`  [debug-bin] tạo bin mới thành công: "${childName}".`);
-      return folder;
-    }
+    if (!beforeFolderNames.has(childName)) return folder;
   }
-  if (log) log(`  [debug-bin] SAU khi tạo, root có các bin: [${afterFolderNames.join(", ")}] — không thấy bin nào MỚI so với trước.`, "warn");
-  throw new Error(`Đã tạo bin "${name}" (executeTransaction ok=true) nhưng không tìm lại được bin mới trong Project panel.`);
+  throw new Error(`Đã tạo bin "${name}" nhưng không tìm lại được bin mới trong Project panel.`);
 }
 
-// 2026-09-15: bug y hệt kiểu "trùng tên nhầm loại" như findOrCreateBin — bin và sequence CỐ TÌNH
-// cùng tên (= sequenceName), nên tìm project item của sequence bằng findProjectItemByName() (chỉ so
-// tên) có thể khớp NHẦM sang chính cái bin (thấy trước trong danh sách), rồi "di chuyển bin vào
-// chính nó" — executeTransaction vẫn trả true nhưng không làm gì hữu ích, sequence không hề nhúc
-// nhích. Hàm này loại trừ FolderItem khi tìm, chỉ nhận item KHÔNG PHẢI bin.
+// Bin và sequence CỐ TÌNH cùng tên (= sequenceName) để nằm cùng nhóm trong Project panel — nên khi
+// tìm project item của sequence để di chuyển vào bin, phải loại trừ FolderItem, nếu không sẽ khớp
+// nhầm sang chính cái bin (executeTransaction vẫn trả true nhưng "di chuyển bin vào chính nó", không
+// làm gì hữu ích — đã gặp thật, xem CHANGELOG v1.13.1).
 async function findNonFolderItemByName(rootItem, name) {
   const items = (await rootItem.getItems()) || [];
   for (const child of items) {
@@ -255,7 +227,7 @@ async function findNonFolderItemByName(rootItem, name) {
 // trong bin riêng. API createMoveItemAction() đã xác nhận qua sample chính thức Adobe
 // (projectPanel.ts, dự án Premiere MCP anh em, live-tested 2026-09-14): gọi trên rootItem (chứa cả
 // nguồn lẫn đích), nhận 2 tham số (item cần di chuyển, folder đích đã cast FolderItem).
-async function moveItemIntoBin(project, rootItem, item, targetBin, log) {
+async function moveItemIntoBin(project, rootItem, item, targetBin) {
   const targetFolder = await ppro.FolderItem.cast(targetBin);
   if (!targetFolder) throw new Error("targetBin không cast được thành FolderItem hợp lệ.");
   if (typeof rootItem.createMoveItemAction !== "function") {
@@ -267,7 +239,6 @@ async function moveItemIntoBin(project, rootItem, item, targetBin, log) {
       compoundAction.addAction(rootItem.createMoveItemAction(item, targetFolder));
     }, `Di chuyển item vào bin`);
   });
-  if (log) log(`  [debug-bin] moveItemIntoBin: executeTransaction() trả về ${ok}.`);
   if (!ok) throw new Error("executeTransaction trả về false khi di chuyển item vào bin.");
 }
 
@@ -292,7 +263,6 @@ async function importFilesToProject({ paths, binName }, log) {
 
   try {
     const ok = await project.importFiles(paths, true, targetBin, false);
-    if (log) log(`  [debug-import] project.importFiles() trả về: ${ok}, đích: ${actualBinName}.`);
     return {
       imported: paths.map((p) => ({ path: p, name: p.split(/[\\/]/).pop() })),
       skipped: [],
@@ -717,8 +687,7 @@ async function runMicCheckWorkflow({
     try {
       const seqItem = await findNonFolderItemByName(rootItem, seqResult.name);
       if (!seqItem) throw new Error("không tìm thấy project item của sequence vừa tạo (loại trừ bin cùng tên).");
-      if (log) log(`  [debug-bin] tìm thấy project item của sequence (đã loại trừ bin cùng tên) — tiến hành di chuyển.`);
-      await moveItemIntoBin(project, rootItem, seqItem, targetBin, log);
+      await moveItemIntoBin(project, rootItem, seqItem, targetBin);
       if (log) log(`  Đã chuyển sequence "${seqResult.name}" vào bin "${sequenceName}".`);
     } catch (e) {
       if (log) log(`  ⚠️ Không chuyển được sequence vào bin: ${e.message}`, "warn");
@@ -747,9 +716,6 @@ async function runMicCheckWorkflow({
     ...srtPaths,
     ...[...resolvedImagePaths.values()]
   ];
-  // 2026-09-15: lần trước (v1.8.0) gọi binName làm mất luôn cả ảnh/srt trên máy user, đã revert ở
-  // v1.11.0. Thử lại có log "[debug-bin]"/"[debug-import]" chi tiết + fallback về root nếu bin lỗi
-  // (xem findOrCreateBin/importFilesToProject) — nếu vẫn lỗi, log lần này sẽ chỉ đúng chỗ gãy.
   if (log) log(`Import ${allPaths.length} file media vào bin "${sequenceName}"...`);
   const importResult = await importFilesToProject({ paths: allPaths, binName: sequenceName }, log);
 

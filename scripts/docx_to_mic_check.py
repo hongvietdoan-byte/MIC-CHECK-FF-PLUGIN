@@ -479,7 +479,7 @@ def write_qc_report(report_rows, report_path: Path) -> None:
 
 # Dùng CHUNG 1 số version với plugin (mic-check-plugin/plugin/manifest.json) cho cả gói Mic Check —
 # bump cả 2 cùng lúc mỗi khi có thay đổi người dùng cuối nhìn thấy, để chỉ cần nhớ đúng 1 con số.
-MIC_CHECK_VERSION = "1.6.0"
+MIC_CHECK_VERSION = "1.14.0"
 
 BANNER = (
     "===============================================\n"
