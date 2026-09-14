@@ -30,6 +30,12 @@
     padding: 2px 6px; font-size: 10px; height: 22px; flex: 1; }
   .row input[type=number].small { flex: 0 0 42px; max-width: 42px; padding: 2px 4px; }
 
+  .row-split { display: flex; gap: 8px; margin-bottom: 4px; }
+  .row-split:last-child { margin-bottom: 0; }
+  .row-split > .row { margin-bottom: 0; flex: 1; min-width: 0; }
+  .row-split > .row label { width: auto; flex-shrink: 0; }
+  .row-split > .row select, .row-split > .row input { min-width: 0; }
+
   .row select {
     appearance: none; -webkit-appearance: none;
     background-image: linear-gradient(45deg, transparent 50%, #999 50%), linear-gradient(135deg, #999 50%, transparent 50%);
@@ -128,16 +134,18 @@
 
   <div class="card">
     <div class="card-label">Cấu hình tạo sequence</div>
-    <div class="row">
-      <label>Size</label>
-      <select id="mcOrientation">
-        <option value="landscape">Landscape 1920x1080</option>
-        <option value="portrait">Portrait 1080x1920</option>
-      </select>
-    </div>
-    <div class="row">
-      <label title="Frame rate của sequence — mặc định 60, tự chỉnh lại nếu cần">Fps</label>
-      <input type="number" id="mcFps" class="small" value="60" min="1" step="0.001">
+    <div class="row-split">
+      <div class="row">
+        <label>Size</label>
+        <select id="mcOrientation">
+          <option value="landscape">Landscape 1920x1080</option>
+          <option value="portrait">Portrait 1080x1920</option>
+        </select>
+      </div>
+      <div class="row" style="flex: 0 0 auto;">
+        <label title="Frame rate của sequence — mặc định 60, tự chỉnh lại nếu cần">Fps</label>
+        <input type="number" id="mcFps" class="small" value="60" min="1" step="0.001">
+      </div>
     </div>
     <div class="actions">
       <button id="mcRunBtn" class="primary" disabled>▶ Chạy Mic Check</button>
@@ -147,10 +155,15 @@
 
   <div class="card">
     <div class="card-label">Điều chỉnh vị trí ảnh trên timeline</div>
-    <div class="row">
-      <label title="Số track V hiển thị trên timeline Premiere — vd ảnh nằm ở V2 thì gõ 2">Track</label>
-      <input type="number" id="mcLayoutTrack" class="small" value="2" min="1" step="1">
-      <span style="font-size:9px; color:#666;">(vd V2 → gõ 2)</span>
+    <div class="row-split">
+      <div class="row">
+        <label title="Số track V hiển thị trên timeline Premiere — vd ảnh nằm ở V2 thì gõ 2">Track</label>
+        <input type="number" id="mcLayoutTrack" class="small" value="2" min="1" step="1">
+      </div>
+      <div class="row">
+        <label title="Scale % — GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Scale">Scale %</label>
+        <input type="number" id="mcLayoutScale" class="small" value="100" step="1">
+      </div>
     </div>
     <div class="row">
       <label title="Vị trí Position X/Y — pixel tuyệt đối, GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Position của Premiere">Vị trí</label>
@@ -174,16 +187,9 @@
       <input type="number" id="mcLayoutX" class="small" value="960" step="1">
       <input type="number" id="mcLayoutY" class="small" value="540" step="1">
     </div>
-    <div class="row">
-      <label title="Scale % — GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Scale">Scale %</label>
-      <input type="number" id="mcLayoutScale" class="small" value="100" step="1">
-    </div>
     <div class="actions">
-      <button id="mcLayoutPickBtn" title="Đọc lại Position/Scale THẬT của clip đang chọn trên timeline (vd sau khi bạn tự kéo tay chỉnh trong Program Monitor) và điền vào ô trên.">Lấy motion từ ảnh đang chọn</button>
-    </div>
-    <div class="actions">
-      <button id="mcLayoutBtn">Áp dụng thay đổi cho ảnh trên track</button>
-      <span class="info-icon" title="Sẽ GHI ĐÈ Position/Scale của TOÀN BỘ ảnh trên track đã chọn bằng đúng số ở trên — kể cả những ảnh bạn đã tự kéo tay chỉnh riêng trước đó. Muốn lấy chuẩn từ 1 ảnh đã chỉnh tay, chọn ảnh đó rồi bấm &quot;Lấy từ ảnh đang chọn&quot; trước.">i</span>
+      <button id="mcLayoutPickBtn" title="Đọc lại Position/Scale THẬT của clip đang chọn trên timeline (vd sau khi bạn tự kéo tay chỉnh trong Program Monitor) và điền vào ô trên.">Lấy từ ảnh chọn</button>
+      <button id="mcLayoutBtn" title="Sẽ GHI ĐÈ Position/Scale của TOÀN BỘ ảnh trên track đã chọn bằng đúng số ở trên — kể cả những ảnh bạn đã tự kéo tay chỉnh riêng trước đó. Muốn lấy chuẩn từ 1 ảnh đã chỉnh tay, chọn ảnh đó rồi bấm &quot;Lấy từ ảnh chọn&quot; trước.">Áp dụng cho track</button>
     </div>
   </div>
 
