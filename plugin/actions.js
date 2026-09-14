@@ -14,7 +14,7 @@ const uxpFormats = require("uxp").storage.formats;
 
 // Nguồn duy nhất cho số phiên bản hiển thị trên panel — phải khớp "version" trong manifest.json
 // và hậu tố tên file MicCheck_v<version>.ccx mỗi lần build/release (xem README.md).
-const MIC_CHECK_VERSION = "1.10.5";
+const MIC_CHECK_VERSION = "1.11.0";
 
 // ----------------------------------------------------------------------------
 // Helpers dùng chung
@@ -155,10 +155,12 @@ async function findExistingItemAtPosition(track, itemName, desiredSeconds) {
 // Import media
 // ----------------------------------------------------------------------------
 
-// API createBinAction() đã live-test xác nhận ở dự án Premiere MCP anh em (parent.createBin()
-// KHÔNG tồn tại — đúng phải cast FolderItem rồi gọi createBinAction(name, makeUnique) qua
-// executeTransaction). Tái dùng lại đây để mỗi bảng/sequence có 1 bin riêng chứa ảnh/srt/video,
-// đỡ bị loạn khi chạy nhiều mã cùng lúc và mọi thứ dồn hết vào root Project panel.
+// ⚠️ 2026-09-15: HIỆN KHÔNG ĐƯỢC GỌI NỮA — live-test thật trên Premiere của user cho thấy hàm này
+// (hoặc createBinAction() nói riêng) gây import ảnh/srt thất bại HOÀN TOÀN (không tạo được bin nào,
+// không đặt được clip nào lên timeline), dù cùng pattern này từng được ghi là "live-tested" ở dự án
+// Premiere MCP anh em. Chưa xác định được nguyên nhân thật (nghi executeTransaction thất bại âm thầm
+// khiến targetBin trả về là tham chiếu hỏng). Giữ lại hàm để tham khảo/debug tiếp sau, KHÔNG gọi lại
+// cho tới khi có ai đó live-test xác nhận sửa được — xem chỗ gọi importFilesToProject() bên dưới.
 async function findOrCreateBin(project, rootItem, name) {
   const items = (await rootItem.getItems()) || [];
   for (const child of items) {
@@ -619,8 +621,15 @@ async function runMicCheckWorkflow({
     ...srtPaths,
     ...[...resolvedImagePaths.values()]
   ];
-  if (log) log(`Import ${allPaths.length} file media vào bin "${sequenceName}"...`);
-  const importResult = await importFilesToProject({ paths: allPaths, binName: sequenceName });
+  // 2026-09-15 REVERT: findOrCreateBin()/binName gây lỗi thật trên Premiere của user — plugin KHÔNG
+  // tạo được bin nào cả (bin "Bin" trong Project panel của user là do user tự tạo tay để làm mẫu,
+  // không phải do plugin), và TOÀN BỘ ảnh/srt import còn thất bại theo (mọi placement báo "Không tìm
+  // thấy item trong Project panel"). Nghi createBinAction()/executeTransaction thất bại âm thầm rồi
+  // targetBin trả về là 1 tham chiếu hỏng, khiến project.importFiles() không đặt được gì vào đâu cả.
+  // Chưa debug trực tiếp được trên máy user nên revert về import thẳng root (cách cũ đã ổn định
+  // trước v1.8.0) để không chặn workflow chính — không đoán tiếp thêm fix nào khác cho bin.
+  if (log) log(`Import ${allPaths.length} file media...`);
+  const importResult = await importFilesToProject({ paths: allPaths });
 
   // Mỗi video khớp mã đi lên 1 track riêng (V1, V2, ...) để không đè/trồng chéo nếu 1 mã khớp nhiều
   // video (vd nhiều góc quay). Ảnh nhân vật luôn đặt ở track NGAY SAU toàn bộ video đã đặt.
