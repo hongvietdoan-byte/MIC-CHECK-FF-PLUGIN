@@ -29,7 +29,10 @@
     background: #1a1a1d; color: #e4e4e8; border: 1px solid #444448; border-radius: 3px;
     padding: 2px 6px; font-size: 10px; height: 22px; flex: 1; }
   .row input[type=number].small { flex: 0 0 40px; max-width: 40px; padding: 2px 4px; }
-  .row-split > .row input[type=number].small { flex: 0 0 36px; max-width: 36px; padding: 2px 1px; text-align: center; }
+  .row-split > .row input[type=number].small { flex: 0 0 36px; max-width: 36px; padding: 2px 1px; }
+  /* Chỉ định thẳng theo ID (specificity cao nhất) để chắc chắn không bị luật nào khác đè —
+     text-align trên input[type=number] từng không ăn trong panel Premiere thật dù rule class đã có. */
+  #mcLayoutTrack, #mcLayoutScale, #mcLayoutX, #mcLayoutY, #mcFps { text-align: center; }
 
   .row-split { display: flex; gap: 7px; margin-bottom: 4px; }
   .row-split:last-child { margin-bottom: 0; }
@@ -169,7 +172,7 @@
         <input type="number" id="mcLayoutScale" class="small" value="100" step="1">
       </div>
       <div class="row">
-        <label title="Vị trí Position X/Y — pixel tuyệt đối, GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Position của Premiere">Vị trí</label>
+        <label title="Vị trí Position X/Y — pixel tuyệt đối, GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Position của Premiere" style="margin-right: 4px;">Vị trí</label>
         <div class="zone-grid" id="mcZoneGrid">
           <div class="zone-row">
             <div class="zone-btn" role="button" data-x="0.15" data-y="0.15"></div>
