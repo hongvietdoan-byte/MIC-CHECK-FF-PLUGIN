@@ -14,7 +14,7 @@ const uxpFormats = require("uxp").storage.formats;
 
 // Nguồn duy nhất cho số phiên bản hiển thị trên panel — phải khớp "version" trong manifest.json
 // và hậu tố tên file MicCheck_v<version>.ccx mỗi lần build/release (xem README.md).
-const MIC_CHECK_VERSION = "1.7.0";
+const MIC_CHECK_VERSION = "1.8.0";
 
 // ----------------------------------------------------------------------------
 // Helpers dùng chung
@@ -155,6 +155,42 @@ async function findExistingItemAtPosition(track, itemName, desiredSeconds) {
 // Import media
 // ----------------------------------------------------------------------------
 
+// API createBinAction() đã live-test xác nhận ở dự án Premiere MCP anh em (parent.createBin()
+// KHÔNG tồn tại — đúng phải cast FolderItem rồi gọi createBinAction(name, makeUnique) qua
+// executeTransaction). Tái dùng lại đây để mỗi bảng/sequence có 1 bin riêng chứa ảnh/srt/video,
+// đỡ bị loạn khi chạy nhiều mã cùng lúc và mọi thứ dồn hết vào root Project panel.
+async function findOrCreateBin(project, rootItem, name) {
+  const items = (await rootItem.getItems()) || [];
+  for (const child of items) {
+    let childName = null;
+    try { childName = child.name || (await child.getName()); } catch {}
+    if (childName === name) return child;
+  }
+
+  const parentFolder = (typeof rootItem.createBinAction === "function")
+    ? rootItem
+    : ppro.FolderItem.cast(rootItem);
+  if (!parentFolder || typeof parentFolder.createBinAction !== "function") {
+    throw new Error(`Không lấy được FolderItem hợp lệ để tạo bin "${name}".`);
+  }
+
+  let ok;
+  await project.lockedAccess(() => {
+    ok = project.executeTransaction((compoundAction) => {
+      compoundAction.addAction(parentFolder.createBinAction(name, false));
+    }, `Tạo bin "${name}"`);
+  });
+  if (!ok) throw new Error(`executeTransaction trả về false khi tạo bin "${name}".`);
+
+  const afterItems = (await rootItem.getItems()) || [];
+  for (const child of afterItems) {
+    let childName = null;
+    try { childName = child.name || (await child.getName()); } catch {}
+    if (childName === name) return child;
+  }
+  throw new Error(`Đã tạo bin "${name}" nhưng không tìm lại được trong Project panel.`);
+}
+
 async function importFilesToProject({ paths, binName }) {
   if (!paths || paths.length === 0) throw new Error("Phải truyền ít nhất 1 đường dẫn file.");
   const project = await ppro.Project.getActiveProject();
@@ -162,14 +198,8 @@ async function importFilesToProject({ paths, binName }) {
 
   let targetBin = null;
   if (binName) {
-    try {
-      const rootItem = await project.getRootItem();
-      const items = (await rootItem.getItems()) || [];
-      for (const child of items) {
-        const name = child.name || (await child.getName());
-        if (name === binName) { targetBin = child; break; }
-      }
-    } catch {}
+    const rootItem = await project.getRootItem();
+    targetBin = await findOrCreateBin(project, rootItem, binName);
   }
 
   try {
@@ -585,8 +615,8 @@ async function runMicCheckWorkflow({
     ...srtPaths,
     ...[...resolvedImagePaths.values()]
   ];
-  if (log) log(`Import ${allPaths.length} file media...`);
-  const importResult = await importFilesToProject({ paths: allPaths });
+  if (log) log(`Import ${allPaths.length} file media vào bin "${sequenceName}"...`);
+  const importResult = await importFilesToProject({ paths: allPaths, binName: sequenceName });
 
   // Mỗi video khớp mã đi lên 1 track riêng (V1, V2, ...) để không đè/trồng chéo nếu 1 mã khớp nhiều
   // video (vd nhiều góc quay). Ảnh nhân vật luôn đặt ở track NGAY SAU toàn bộ video đã đặt.
