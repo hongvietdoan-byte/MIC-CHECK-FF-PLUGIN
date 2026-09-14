@@ -127,6 +127,16 @@ UXP API của Premiere hiện **không cho phép gắn SRT vào Caption Track b�
 
 Sau đó có thể bấm lại **✓ Verify** — nếu đã kéo caption, panel sẽ báo số lượng caption item tìm thấy trên track.
 
+> **Đã cân nhắc và QUYẾT ĐỊNH KHÔNG tự động hoá bước này** (2026-09-14) — từng nghĩ tới dùng
+> PowerShell điều khiển desktop thật (chụp màn hình + `SetCursorPos`/`mouse_event` mô phỏng
+> kéo-thả), nhưng đánh giá lại thấy không đáng: UXP sandbox khó/không rõ có cho spawn PowerShell từ
+> panel hay không (sẽ phải dựng lại kiến trúc process ngoài mà Mic Check cố tình bỏ), toạ độ chuột
+> giòn theo layout/DPI/zoom, user không được đụng máy lúc automation chạy, còn thao tác thủ công
+> chỉ mất ~5 giây/lần — lợi ích quá nhỏ so với độ phức tạp/rủi ro thêm vào. Giữ nguyên bước thủ công
+> ở trên; hướng đúng hơn là theo dõi xem Premiere Pro bản tương lai có bổ sung API import Caption
+> Track từ SRT hay không (giống `setVideoFrameRate` chỉ có từ 26.2), hoặc chờ 1 tool khác hỗ trợ.
+> Chi tiết đánh giá: `D:\Users\claude-memory\references\powershell-desktop-automation.md`.
+
 ## Cấu trúc thư mục
 
 ```
