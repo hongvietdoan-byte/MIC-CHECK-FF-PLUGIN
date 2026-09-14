@@ -28,11 +28,12 @@
   .row input[type=text], .row input[type=number], .row select {
     background: #1a1a1d; color: #e4e4e8; border: 1px solid #444448; border-radius: 3px;
     padding: 2px 6px; font-size: 10px; height: 22px; flex: 1; }
-  .row input[type=number].small { flex: 0 0 42px; max-width: 42px; padding: 2px 4px; }
+  .row input[type=number].small { flex: 0 0 40px; max-width: 40px; padding: 2px 4px; }
+  .row-split > .row input[type=number].small { flex: 0 0 36px; max-width: 36px; padding: 2px 1px; text-align: center; }
 
-  .row-split { display: flex; gap: 16px; margin-bottom: 4px; }
+  .row-split { display: flex; gap: 10px; margin-bottom: 4px; }
   .row-split:last-child { margin-bottom: 0; }
-  .row-split > .row { margin-bottom: 0; flex: 0 0 auto; }
+  .row-split > .row { margin-bottom: 0; flex: 0 0 auto; gap: 4px; }
   .row-split > .row label { width: auto; flex-shrink: 0; }
 
   .row select {
@@ -48,9 +49,9 @@
      style tuỳ chỉnh trên <button> thật (đã gặp ở dự án Beat Shake cùng công ty). Cũng tránh dùng
      display:grid (chưa kiểm chứng trong webview UXP), thay bằng flex lồng flex — pattern đã dùng ổn
      định khắp file này. */
-  .zone-grid { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
-  .zone-row { display: flex; gap: 2px; }
-  .zone-btn { width: 16px; height: 16px; background: #1a1a1d; border: 1px solid #444448;
+  .zone-grid { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+  .zone-row { display: flex; gap: 1px; }
+  .zone-btn { width: 13px; height: 13px; background: #1a1a1d; border: 1px solid #444448;
     border-radius: 2px; cursor: pointer; }
   .zone-btn:hover { background: #333338; }
   .zone-btn.active { background: #d9822f; border-color: #d9822f; }
@@ -163,28 +164,27 @@
         <label title="Scale % — GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Scale">Scale %</label>
         <input type="number" id="mcLayoutScale" class="small" value="100" step="1">
       </div>
-    </div>
-    <div class="row">
-      <label title="Vị trí Position X/Y — pixel tuyệt đối, GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Position của Premiere">Vị trí</label>
-      <div class="zone-grid" id="mcZoneGrid">
-        <div class="zone-row">
-          <div class="zone-btn" role="button" data-x="0.15" data-y="0.15"></div>
-          <div class="zone-btn" role="button" data-x="0.5" data-y="0.15"></div>
-          <div class="zone-btn" role="button" data-x="0.85" data-y="0.15"></div>
+      <div class="row" title="Vị trí Position X/Y — pixel tuyệt đối, GIỐNG HỆT số hiển thị trong Effect Controls > Motion > Position của Premiere">
+        <div class="zone-grid" id="mcZoneGrid">
+          <div class="zone-row">
+            <div class="zone-btn" role="button" data-x="0.15" data-y="0.15"></div>
+            <div class="zone-btn" role="button" data-x="0.5" data-y="0.15"></div>
+            <div class="zone-btn" role="button" data-x="0.85" data-y="0.15"></div>
+          </div>
+          <div class="zone-row">
+            <div class="zone-btn" role="button" data-x="0.15" data-y="0.5"></div>
+            <div class="zone-btn active" role="button" data-x="0.5" data-y="0.5"></div>
+            <div class="zone-btn" role="button" data-x="0.85" data-y="0.5"></div>
+          </div>
+          <div class="zone-row">
+            <div class="zone-btn" role="button" data-x="0.15" data-y="0.85"></div>
+            <div class="zone-btn" role="button" data-x="0.5" data-y="0.85"></div>
+            <div class="zone-btn" role="button" data-x="0.85" data-y="0.85"></div>
+          </div>
         </div>
-        <div class="zone-row">
-          <div class="zone-btn" role="button" data-x="0.15" data-y="0.5"></div>
-          <div class="zone-btn active" role="button" data-x="0.5" data-y="0.5"></div>
-          <div class="zone-btn" role="button" data-x="0.85" data-y="0.5"></div>
-        </div>
-        <div class="zone-row">
-          <div class="zone-btn" role="button" data-x="0.15" data-y="0.85"></div>
-          <div class="zone-btn" role="button" data-x="0.5" data-y="0.85"></div>
-          <div class="zone-btn" role="button" data-x="0.85" data-y="0.85"></div>
-        </div>
+        <input type="number" id="mcLayoutX" class="small" value="960" step="1">
+        <input type="number" id="mcLayoutY" class="small" value="540" step="1">
       </div>
-      <input type="number" id="mcLayoutX" class="small" value="960" step="1">
-      <input type="number" id="mcLayoutY" class="small" value="540" step="1">
     </div>
     <div class="actions">
       <button id="mcLayoutPickBtn" title="Đọc lại Position/Scale THẬT của clip đang chọn trên timeline (vd sau khi bạn tự kéo tay chỉnh trong Program Monitor) và điền vào ô trên.">Lấy từ ảnh chọn</button>
