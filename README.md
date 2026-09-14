@@ -17,7 +17,7 @@ Plugin UXP độc lập cho Premiere Pro, dùng để dựng nhanh timeline gồ
 Đơn giản nhất cho người nhận không rành kỹ thuật — không cần cài UXP Developer Tool, không cần ký số.
 
 1. Người nhận cần có **Adobe Creative Cloud Desktop** đã cài và đăng nhập sẵn (thường có sẵn nếu đã dùng Premiere).
-2. Double-click file `.ccx` ở gốc repo (tên có kèm số phiên bản, hiện tại là [`MicCheck_v1.5.0.ccx`](MicCheck_v1.5.0.ccx)) → Creative Cloud Desktop tự nhận diện và cài vào Premiere Pro.
+2. Double-click file `.ccx` ở gốc repo (tên có kèm số phiên bản, hiện tại là [`MicCheck_v1.14.0.ccx`](MicCheck_v1.14.0.ccx)) → Creative Cloud Desktop tự nhận diện và cài vào Premiere Pro.
 3. Mở Premiere Pro (hoặc khởi động lại nếu đang mở) → panel "Mic Check" xuất hiện ở **Window → Extensions → Mic Check**.
 
 **Cách tự đóng gói file `.ccx` (cho người build/chia sẻ):**
@@ -45,14 +45,14 @@ Từ bản này, dữ liệu được tách thành **2 thư mục riêng biệt*
 
 Đặt tên file `.docx`/`.csv`/`.xlsx` nguồn với **tiền tố mã riêng biệt**, khuyên dùng **ít nhất 3 cụm cách nhau bằng dấu `-`** để tránh trùng lặp (vd `VN-WAG-D3-G2__Week_2.csv`, mã ở đây là `VN-WAG-D3-G2`). Converter sinh ra file giữ nguyên tên gốc (`VN-WAG-D3-G2__Week_2.cues.json`, `VN-WAG-D3-G2__Week_2_EN.srt`...) nên mã luôn nằm sẵn trong tên file xuất ra.
 
-Trong panel, gõ mã vào ô **"Mã"** (nhiều mã cách nhau bằng `;`, vd `VN-FL-D3-G2; VN-FL-D3-G1; TH-EVOS-D2-G1`):
+Trong panel, gõ mã vào ô **"Lọc mã"** (nhiều mã cách nhau bằng `;`, vd `VN-FL-D3-G2; VN-FL-D3-G1; TH-EVOS-D2-G1`) — hoặc bấm thẳng vào mã gợi ý hiện ra trong khung "Nguồn dữ liệu" để tự điền, không cần gõ tay:
 - Plugin tìm trong **thư mục dữ liệu** mọi file `.cues.json` có tên CHỨA mã đó (không phân biệt hoa/thường).
 - Mỗi file khớp → tạo **1 sequence mới riêng** (tên sequence = mã). Nếu 1 mã khớp nhiều file (mã chưa đủ cụ thể) thì vẫn chạy hết tất cả — không báo lỗi, chỉ cần đặt mã đủ dài (≥3 cụm) để tránh việc này.
 - Mã nào không khớp file nào → báo rõ ở cuối, không chặn các mã khác.
 - File `.srt` khớp theo **tiền tố tên file** trùng với file `.cues.json` đã khớp (tự động, không cần gõ thêm).
 - File **video** (`.mp4`/`.mov`/`.mxf`/`.avi`) trong thư mục dữ liệu cũng được dò theo **cùng mã** — nếu 1 mã khớp nhiều video (vd nhiều góc quay), mỗi video được đặt vào **1 track V riêng** (V1, V2, ...), không đè/trồng chéo lên nhau. Ảnh nhân vật luôn nằm ở track ngay sau tất cả video đã đặt.
 
-Nếu để trống ô **Mã** và thư mục dữ liệu chỉ có đúng 1 file `.cues.json`, plugin tự chạy luôn file đó (không bắt buộc phải gõ mã cho trường hợp đơn giản 1 dự án).
+Nếu để trống ô **Lọc mã**: thư mục chỉ có 1 file `.cues.json` → plugin tự chạy luôn file đó; thư mục có NHIỀU file → plugin mặc định chạy **tất cả** (không còn bắt buộc phải gõ mã).
 
 ### Nhiều bảng cạnh nhau trong 1 file/sheet (vd ghép nhiều trận vào 1 sheet Google Sheets)
 
@@ -89,15 +89,18 @@ scripts/Chuyen_Doi_File_Mic_Check.exe --input "duong/dan/file.docx" --out-dir "t
 ### Bước 2 — Chạy Mic Check trong Premiere
 
 1. Mở panel **Mic Check**.
-2. Bấm **Chọn** ở dòng **Thư mục ảnh** → chọn thư mục ảnh dùng chung (chỉ cần làm 1 lần, plugin nhớ lại cho các lần sau).
-3. Bấm **Chọn** ở dòng **Thư mục dữ liệu** → chọn thư mục chứa `cues.json`/`.srt`/video (có thể lẫn nhiều dự án).
-4. Gõ **Mã** (bỏ trống nếu thư mục chỉ có 1 dự án) — nhiều mã cách nhau bằng `;` để chạy hàng loạt.
-5. Chọn **Hướng khung hình** (áp dụng chung cho mọi sequence tạo trong lần chạy này).
+2. Bấm **Chọn** ở dòng **Ảnh** (khung Nguồn dữ liệu) → chọn thư mục ảnh dùng chung (chỉ cần làm 1 lần, plugin nhớ lại cho các lần sau).
+3. Bấm **Chọn** ở dòng **Dữ liệu** → chọn thư mục chứa `cues.json`/`.srt`/video (có thể lẫn nhiều dự án).
+4. Gõ **Lọc mã** (bỏ trống = chạy tất cả file tìm thấy) — nhiều mã cách nhau bằng `;` để chạy hàng loạt, hoặc bấm thẳng vào mã gợi ý hiện ra để tự điền.
+5. Chọn **Size** (khung hình) và **Fps** (mặc định 60) — áp dụng chung cho mọi sequence tạo trong lần chạy này.
 6. Bấm **▶ Chạy Mic Check**. Với mỗi mã/file khớp, plugin tự:
-   - Tạo 1 sequence mới, 60fps, đúng hướng đã chọn (tên sequence = mã, hoặc tên file nếu chạy không gõ mã)
-   - Đặt video khớp mã (nếu có) lên các track V riêng biệt, đặt ảnh nhân vật lên track kế tiếp
-   - Import toàn bộ file `.srt` khớp vào Project panel
-   - Bỏ qua (và báo rõ ở cuối) những cue thiếu ảnh, không chặn cả lần chạy
+   - Tạo 1 **bin riêng** trong Project panel (trùng tên sequence), chứa cả sequence lẫn media của nó.
+   - Tạo 1 sequence mới đúng Size/Fps đã chọn (tên sequence = mã, hoặc tên file nếu chạy không gõ mã).
+   - Đặt video khớp mã (nếu có) lên các track V riêng biệt, đặt ảnh nhân vật lên track kế tiếp.
+   - Import toàn bộ file `.srt` khớp vào Project panel (trong bin đó).
+   - Bỏ qua (và báo rõ ở cuối) những cue thiếu ảnh, không chặn cả lần chạy.
+
+   Muốn dừng giữa chừng (vd phát hiện chọn nhầm mã): bấm nút **⏸ Dừng** cạnh thanh tiến trình — dừng sau khi xong item/sequence hiện tại, không cắt ngang 1 thao tác Premiere.
 
 ### Bước 3 — Verify
 
@@ -110,14 +113,14 @@ Sau khi đã **Chạy Mic Check** (hoặc bất kỳ lúc nào có ảnh trên t
 1. **Track** — gõ đúng số track Premiere hiển thị (vd ảnh nằm ở V2 thì gõ `2`).
 2. **Vị trí** — bấm 1 trong 9 ô lưới 3×3 để chọn nhanh vị trí theo vùng (góc/giữa/cạnh, có tính safe zone cơ bản), hoặc gõ thẳng **X/Y theo pixel tuyệt đối** — số này **giống hệt** số hiển thị trong Premiere ở **Effect Controls → Motion → Position**, khớp trực tiếp không cần quy đổi.
 3. **Scale %** — cũng giống hệt số ở **Effect Controls → Motion → Scale**.
-4. Bấm **Áp dụng thay đổi cho ảnh trên track** — áp Position/Scale đó cho **toàn bộ** clip ảnh đang có trên track đã chọn. Hover vào icon **ⓘ** cạnh nút để xem cảnh báo: thao tác này **ghi đè** vị trí của mọi clip trên track, kể cả những clip bạn đã tự kéo tay chỉnh riêng trước đó.
+4. Bấm **Áp dụng cho track** — áp Position/Scale đó cho **toàn bộ** clip ảnh đang có trên track đã chọn. Hover vào tooltip của nút để xem cảnh báo: thao tác này **ghi đè** vị trí của mọi clip trên track, kể cả những clip bạn đã tự kéo tay chỉnh riêng trước đó.
 
 **Lấy chuẩn từ 1 ảnh đã tự kéo tay chỉnh** — nếu bạn vừa tự kéo/resize 1 ảnh trong Program Monitor và muốn áp đúng vị trí đó cho các ảnh còn lại trên track:
 1. Trong Premiere, click chọn đúng clip ảnh đó trên timeline.
-2. Trong panel, bấm **Lấy motion từ ảnh đang chọn** — plugin đọc lại Position/Scale **thật** hiện tại của clip đó và tự điền vào ô X/Y/Scale.
-3. Bấm **Áp dụng thay đổi cho ảnh trên track** như bình thường để áp cho các ảnh khác.
+2. Trong panel, bấm **Lấy từ ảnh chọn** — plugin đọc lại Position/Scale **thật** hiện tại của clip đó và tự điền vào ô X/Y/Scale.
+3. Bấm **Áp dụng cho track** như bình thường để áp cho các ảnh khác.
 
-> Lưu ý: panel **không tự đồng bộ ngược** khi bạn kéo tay chỉnh trong Program Monitor — số trong ô X/Y/Scale chỉ đổi khi bạn tự gõ, chọn ô lưới, hoặc bấm "Lấy motion từ ảnh đang chọn". Nếu vừa tự chỉnh tay nhiều ảnh khác nhau rồi bấm "Áp dụng thay đổi..." với số cũ còn sót trong ô, các ảnh đó sẽ bị ghi đè về cùng 1 vị trí.
+> Lưu ý: panel **không tự đồng bộ ngược** khi bạn kéo tay chỉnh trong Program Monitor — số trong ô X/Y/Scale chỉ đổi khi bạn tự gõ, chọn ô lưới, hoặc bấm "Lấy từ ảnh chọn". Nếu vừa tự chỉnh tay nhiều ảnh khác nhau rồi bấm "Áp dụng cho track" với số cũ còn sót trong ô, các ảnh đó sẽ bị ghi đè về cùng 1 vị trí.
 
 ### Bước 5 — Thêm caption (thủ công)
 
