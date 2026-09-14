@@ -14,7 +14,7 @@ const uxpFormats = require("uxp").storage.formats;
 
 // Nguồn duy nhất cho số phiên bản hiển thị trên panel — phải khớp "version" trong manifest.json
 // và hậu tố tên file MicCheck_v<version>.ccx mỗi lần build/release (xem README.md).
-const MIC_CHECK_VERSION = "1.12.1";
+const MIC_CHECK_VERSION = "1.12.2";
 
 // ----------------------------------------------------------------------------
 // Helpers dùng chung
@@ -155,26 +155,37 @@ async function findExistingItemAtPosition(track, itemName, desiredSeconds) {
 // Import media
 // ----------------------------------------------------------------------------
 
-// 2026-09-15: v1.8.0 gọi hàm này rồi import thất bại HOÀN TOÀN trên máy user (không tạo được bin,
-// không đặt được clip nào) — đã revert ở v1.11.0. Giờ thử lại có 2 thay đổi quan trọng so với trước:
-// (1) log chi tiết TỪNG bước (đánh dấu "[debug-bin]") để lần chạy tới biết chính xác gãy ở đâu thay
-// vì đoán mò; (2) importFilesToProject() bọc try/catch quanh việc gọi hàm này — nếu tạo/tìm bin lỗi
-// bất kỳ kiểu gì, tự động fallback về import thẳng root (KHÔNG để mất ảnh/srt như lần trước).
+// 2026-09-15: v1.8.0 gọi hàm này rồi import thất bại HOÀN TOÀN trên máy user — đã revert ở v1.11.0,
+// thử lại có log ở v1.12.0. Log thật (v1.12.x) lộ ra NGUYÊN NHÂN THẬT: hàm CŨ chỉ so tên, không kiểm
+// tra LOẠI item — sequence vừa tạo (createSequence chạy TRƯỚC hàm này trong runMicCheckWorkflow) có
+// tên TRÙNG với bin cần tạo (cùng = sequenceName), nên bị nhầm là "bin có sẵn", trả về chính cái
+// sequence đó làm targetBin. project.importFiles(paths, true, targetBin, false) nhận 1 sequence
+// (không phải folder thật) → Premiere báo ok:true nhưng không đặt được file nào vào đâu cả (đúng như
+// log user gửi: "Placement 0 LỖI: Không tìm thấy item...").
+// FIX: dùng ppro.FolderItem.cast() để lọc ĐÚNG loại FolderItem khi tìm bin có sẵn (không match
+// sequence/clip cùng tên nữa), và khi verify bin mới tạo thì diff theo TÊN BIN chưa từng xuất hiện
+// trước đó (không chỉ so tên name=target — phòng khi Premiere tự đổi tên bin do trùng tên sequence).
+async function isFolderItem(item) {
+  try { return (await ppro.FolderItem.cast(item)) || null; } catch { return null; }
+}
+
 async function findOrCreateBin(project, rootItem, name, log) {
   const items = (await rootItem.getItems()) || [];
-  const itemNames = [];
+  const beforeFolderNames = new Set();
   for (const child of items) {
     let childName = null;
     try { childName = child.name || (await child.getName()); } catch (e) {
       if (log) log(`  [debug-bin] lỗi đọc tên 1 item ở root: ${e.message}`, "warn");
     }
-    itemNames.push(childName);
+    const folder = await isFolderItem(child);
+    if (!folder) continue; // bỏ qua item không phải bin thật (sequence/clip trùng tên KHÔNG được tính)
+    beforeFolderNames.add(childName);
     if (childName === name) {
-      if (log) log(`  [debug-bin] tìm thấy item trùng tên "${name}" có sẵn ở root — dùng lại làm bin.`);
-      return child;
+      if (log) log(`  [debug-bin] tìm thấy BIN (đúng loại FolderItem) trùng tên "${name}" có sẵn — dùng lại.`);
+      return folder;
     }
   }
-  if (log) log(`  [debug-bin] root hiện có ${items.length} item: [${itemNames.join(", ")}]. Không thấy "${name}" → tạo mới.`);
+  if (log) log(`  [debug-bin] root có ${items.length} item, trong đó bin thật: [${[...beforeFolderNames].join(", ")}]. Không thấy bin "${name}" → tạo mới.`);
 
   const hasOwnCreateBinAction = typeof rootItem.createBinAction === "function";
   const parentFolder = hasOwnCreateBinAction ? rootItem : ppro.FolderItem.cast(rootItem);
@@ -188,10 +199,9 @@ async function findOrCreateBin(project, rootItem, name, log) {
   }
 
   let ok;
-  let createdAction = null;
   await project.lockedAccess(() => {
     ok = project.executeTransaction((compoundAction) => {
-      createdAction = parentFolder.createBinAction(name, false);
+      const createdAction = parentFolder.createBinAction(name, false);
       if (log) log(`  [debug-bin] createBinAction("${name}", false) trả về: ${createdAction ? "object" : String(createdAction)}.`);
       compoundAction.addAction(createdAction);
     }, `Tạo bin "${name}"`);
@@ -200,15 +210,20 @@ async function findOrCreateBin(project, rootItem, name, log) {
   if (!ok) throw new Error(`executeTransaction trả về false khi tạo bin "${name}".`);
 
   const afterItems = (await rootItem.getItems()) || [];
-  const afterNames = [];
+  const afterFolderNames = [];
   for (const child of afterItems) {
+    const folder = await isFolderItem(child);
+    if (!folder) continue;
     let childName = null;
     try { childName = child.name || (await child.getName()); } catch {}
-    afterNames.push(childName);
-    if (childName === name) return child;
+    afterFolderNames.push(childName);
+    if (!beforeFolderNames.has(childName)) {
+      if (log) log(`  [debug-bin] tạo bin mới thành công: "${childName}".`);
+      return folder;
+    }
   }
-  if (log) log(`  [debug-bin] SAU khi tạo, root có ${afterItems.length} item: [${afterNames.join(", ")}] — không thấy "${name}" trong đó.`, "warn");
-  throw new Error(`Đã tạo bin "${name}" (executeTransaction ok=true) nhưng không tìm lại được trong Project panel.`);
+  if (log) log(`  [debug-bin] SAU khi tạo, root có các bin: [${afterFolderNames.join(", ")}] — không thấy bin nào MỚI so với trước.`, "warn");
+  throw new Error(`Đã tạo bin "${name}" (executeTransaction ok=true) nhưng không tìm lại được bin mới trong Project panel.`);
 }
 
 async function importFilesToProject({ paths, binName }, log) {
