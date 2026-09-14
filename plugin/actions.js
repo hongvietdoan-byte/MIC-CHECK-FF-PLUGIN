@@ -14,7 +14,7 @@ const uxpFormats = require("uxp").storage.formats;
 
 // Nguồn duy nhất cho số phiên bản hiển thị trên panel — phải khớp "version" trong manifest.json
 // và hậu tố tên file MicCheck_v<version>.ccx mỗi lần build/release (xem README.md).
-const MIC_CHECK_VERSION = "1.12.2";
+const MIC_CHECK_VERSION = "1.13.0";
 
 // ----------------------------------------------------------------------------
 // Helpers dùng chung
@@ -224,6 +224,27 @@ async function findOrCreateBin(project, rootItem, name, log) {
   }
   if (log) log(`  [debug-bin] SAU khi tạo, root có các bin: [${afterFolderNames.join(", ")}] — không thấy bin nào MỚI so với trước.`, "warn");
   throw new Error(`Đã tạo bin "${name}" (executeTransaction ok=true) nhưng không tìm lại được bin mới trong Project panel.`);
+}
+
+// Di chuyển 1 ProjectItem (vd chính item đại diện cho sequence vừa tạo) vào 1 bin — dùng để gom
+// sequence + toàn bộ media của nó về CHUNG 1 bin, thay vì sequence nằm rời ở root còn media nằm
+// trong bin riêng. API createMoveItemAction() đã xác nhận qua sample chính thức Adobe
+// (projectPanel.ts, dự án Premiere MCP anh em, live-tested 2026-09-14): gọi trên rootItem (chứa cả
+// nguồn lẫn đích), nhận 2 tham số (item cần di chuyển, folder đích đã cast FolderItem).
+async function moveItemIntoBin(project, rootItem, item, targetBin, log) {
+  const targetFolder = await ppro.FolderItem.cast(targetBin);
+  if (!targetFolder) throw new Error("targetBin không cast được thành FolderItem hợp lệ.");
+  if (typeof rootItem.createMoveItemAction !== "function") {
+    throw new Error("rootItem không có createMoveItemAction.");
+  }
+  let ok;
+  await project.lockedAccess(() => {
+    ok = project.executeTransaction((compoundAction) => {
+      compoundAction.addAction(rootItem.createMoveItemAction(item, targetFolder));
+    }, `Di chuyển item vào bin`);
+  });
+  if (log) log(`  [debug-bin] moveItemIntoBin: executeTransaction() trả về ${ok}.`);
+  if (!ok) throw new Error("executeTransaction trả về false khi di chuyển item vào bin.");
 }
 
 async function importFilesToProject({ paths, binName }, log) {
@@ -649,9 +670,35 @@ async function runMicCheckWorkflow({
   const frameWidth = orientation === "portrait" ? 1080 : 1920;
   const frameHeight = orientation === "portrait" ? 1920 : 1080;
 
+  // Tạo bin TRƯỚC (theo đề xuất user 2026-09-15: Bin -> sequence trong Bin -> import file vào cùng
+  // bin đó) — để cả sequence lẫn media của nó nằm chung 1 chỗ, dễ dò trong Project panel khi chạy
+  // nhiều mã cùng lúc. Best-effort: nếu tạo bin lỗi, log cảnh báo và tiếp tục ở root như trước, không
+  // chặn cả lần chạy vì bước tổ chức bin không phải việc bắt buộc để ra kết quả đúng.
+  const project = await ppro.Project.getActiveProject();
+  if (!project) throw new Error("Không tìm thấy project đang mở.");
+  const rootItem = await project.getRootItem();
+  let targetBin = null;
+  try {
+    if (log) log(`Tạo bin "${sequenceName}"...`);
+    targetBin = await findOrCreateBin(project, rootItem, sequenceName, log);
+  } catch (e) {
+    if (log) log(`⚠️ Không tạo được bin "${sequenceName}" (${e.message}) — sequence/media sẽ nằm ở root như bình thường.`, "warn");
+  }
+
   if (log) log(`Tạo sequence "${sequenceName}" (${frameWidth}x${frameHeight}, ${timebase}fps)...`);
   const seqResult = await createSequence({ name: sequenceName, timebase, frameWidth, frameHeight });
   await setActiveSequenceTool({ name: seqResult.name });
+
+  if (targetBin) {
+    try {
+      const seqItem = await findProjectItemByName(project, seqResult.name);
+      if (!seqItem) throw new Error("không tìm thấy project item của sequence vừa tạo.");
+      await moveItemIntoBin(project, rootItem, seqItem, targetBin, log);
+      if (log) log(`  Đã chuyển sequence "${seqResult.name}" vào bin "${sequenceName}".`);
+    } catch (e) {
+      if (log) log(`  ⚠️ Không chuyển được sequence vào bin: ${e.message}`, "warn");
+    }
+  }
 
   // Ảnh nhân vật lấy theo tên Player, tìm ĐỆ QUY trong imagesDir (thư mục dùng chung nhiều dự án,
   // không cần nằm cùng chỗ với cues.json/srt/video nữa) — 1 lần quét chung cho toàn bộ cue.
