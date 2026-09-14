@@ -14,7 +14,7 @@ const uxpFormats = require("uxp").storage.formats;
 
 // Nguồn duy nhất cho số phiên bản hiển thị trên panel — phải khớp "version" trong manifest.json
 // và hậu tố tên file MicCheck_v<version>.ccx mỗi lần build/release (xem README.md).
-const MIC_CHECK_VERSION = "1.8.0";
+const MIC_CHECK_VERSION = "1.9.0";
 
 // ----------------------------------------------------------------------------
 // Helpers dùng chung
@@ -343,13 +343,17 @@ async function insertOrOverwriteClip({ itemName, startSeconds, videoTrackIndex =
 // nhưng KHÔNG loại bỏ hoàn toàn rủi ro; xem README.md mục "Ghi chú / giới hạn đã biết".
 const BATCH_PLACEMENT_DELAY_MS = 150;
 
-async function batchPlaceClips({ placements }, log, onProgress) {
+async function batchPlaceClips({ placements }, log, onProgress, shouldCancel) {
   if (!Array.isArray(placements) || placements.length === 0) {
     throw new Error("Phải truyền placements là mảng không rỗng.");
   }
   const results = [];
   const failed = [];
+  let cancelled = false;
   for (let i = 0; i < placements.length; i++) {
+    // Kiểm tra huỷ GIỮA 2 item (không cắt ngang lúc executeTransaction đang chạy dở) — dừng ở ranh
+    // giới an toàn, item đang xử lý luôn được hoàn tất trước khi dừng hẳn.
+    if (shouldCancel && shouldCancel()) { cancelled = true; break; }
     const p = placements[i];
     try {
       const r = await insertOrOverwriteClip({
@@ -370,7 +374,7 @@ async function batchPlaceClips({ placements }, log, onProgress) {
     if (onProgress) onProgress({ phase: "image", done: i + 1, total: placements.length });
     if (i < placements.length - 1) await sleep(BATCH_PLACEMENT_DELAY_MS);
   }
-  return { total: placements.length, placed: results.length, failed };
+  return { total: placements.length, placed: results.length, failed, cancelled };
 }
 
 // ----------------------------------------------------------------------------
@@ -575,7 +579,7 @@ async function runMicCheckWorkflow({
   sequenceName,
   orientation = "landscape",
   timebase = 60
-}, log, onProgress) {
+}, log, onProgress, shouldCancel) {
   if (!cuesJsonPath) throw new Error("Phải truyền cuesJsonPath.");
   if (!sequenceName) throw new Error("Phải truyền sequenceName.");
   if (!imagesDir) throw new Error("Phải truyền imagesDir.");
@@ -621,7 +625,9 @@ async function runMicCheckWorkflow({
   // Mỗi video khớp mã đi lên 1 track riêng (V1, V2, ...) để không đè/trồng chéo nếu 1 mã khớp nhiều
   // video (vd nhiều góc quay). Ảnh nhân vật luôn đặt ở track NGAY SAU toàn bộ video đã đặt.
   const videoResults = [];
+  let videosCancelled = false;
   for (let i = 0; i < videoPaths.length; i++) {
+    if (shouldCancel && shouldCancel()) { videosCancelled = true; break; }
     const vName = videoPaths[i].split(/[\\/]/).pop();
     if (log) log(`Đặt video "${vName}" vào track V${i + 1}...`);
     try {
@@ -651,13 +657,20 @@ async function runMicCheckWorkflow({
       videoTrackIndex: imageVideoTrackIndex,
       mode: "overwrite"
     }));
-  if (log) log(`Đặt ${placements.length} ảnh theo cues (track V${imageVideoTrackIndex + 1})...`);
-  // batchPlaceClips() ném lỗi nếu placements rỗng — hoàn toàn có thể rỗng nếu TOÀN BỘ player của
-  // cues.json này đều thiếu ảnh (vd chọn nhầm/chưa có ảnh trong thư mục ảnh dùng chung), không nên
-  // để lỗi đó làm gãy cả lần chạy, chỉ cần báo rõ 0 ảnh đặt được qua missingPlayers.
-  const placeResult = placements.length > 0
-    ? await batchPlaceClips({ placements }, log, onProgress)
-    : { total: 0, placed: 0, failed: [] };
+  // Nếu đã bị yêu cầu dừng ngay trong lúc đặt video, bỏ qua luôn bước đặt ảnh (không bắt đầu 1 việc
+  // mới sau khi user đã bấm Dừng) — trả về sớm với cancelled:true thay vì tiếp tục.
+  let placeResult;
+  if (videosCancelled) {
+    placeResult = { total: 0, placed: 0, failed: [], cancelled: true };
+  } else {
+    if (log) log(`Đặt ${placements.length} ảnh theo cues (track V${imageVideoTrackIndex + 1})...`);
+    // batchPlaceClips() ném lỗi nếu placements rỗng — hoàn toàn có thể rỗng nếu TOÀN BỘ player của
+    // cues.json này đều thiếu ảnh (vd chọn nhầm/chưa có ảnh trong thư mục ảnh dùng chung), không nên
+    // để lỗi đó làm gãy cả lần chạy, chỉ cần báo rõ 0 ảnh đặt được qua missingPlayers.
+    placeResult = placements.length > 0
+      ? await batchPlaceClips({ placements }, log, onProgress, shouldCancel)
+      : { total: 0, placed: 0, failed: [], cancelled: false };
+  }
   placeResult.missingPlayers = missingPlayers;
 
   return {
@@ -810,7 +823,7 @@ async function setStaticKeyframe(param, value, atTick) {
   return param.createAddKeyframeAction(kf);
 }
 
-async function applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackIndex }, log, onProgress) {
+async function applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackIndex }, log, onProgress, shouldCancel) {
   if (xPixels == null || yPixels == null || scalePercent == null) {
     throw new Error("Phải truyền xPixels, yPixels, scalePercent.");
   }
@@ -845,7 +858,9 @@ async function applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackInde
   if (log) log(`Áp Position (${xPixels}px, ${yPixels}px) + Scale ${scalePercent}% cho ${items.length} clip trên V${videoTrackIndex + 1}...`);
 
   const results = [];
+  let cancelled = false;
   for (let i = 0; i < items.length; i++) {
+    if (shouldCancel && shouldCancel()) { cancelled = true; break; }
     const item = items[i];
     try {
       const comp = await findComponentInItemChain(item, "AE.ADBE Motion");
@@ -890,6 +905,7 @@ async function applyImageLayout({ xPixels, yPixels, scalePercent, videoTrackInde
     total: items.length,
     applied: results.length - failed.length,
     failed,
+    cancelled,
     xPixels, yPixels, scalePercent, videoTrackIndex, frameWidth, frameHeight
   };
 }

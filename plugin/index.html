@@ -93,6 +93,11 @@
   .progress-bar { height: 6px; background: #1a1a1d; border-radius: 3px; overflow: hidden; }
   .progress-fill { height: 100%; width: 0%; background: #d9822f; transition: width 0.15s ease; }
   .progress-text { font-size: 9px; color: #999; margin-top: 2px; }
+  .progress-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
+  .progress-row .progress-text { margin-top: 0; }
+  button.danger { background: #4a2020; border-color: #7a3030; color: #f0a0a0; height: 20px; padding: 1px 8px; }
+  button.danger:hover { background: #5c2626; }
+  button.danger:disabled { opacity: 0.4; }
 </style>
 </head>
 <body>
@@ -184,7 +189,10 @@
 
   <div class="progress-wrap" id="mcProgressWrap" hidden>
     <div class="progress-bar"><div class="progress-fill" id="mcProgressFill"></div></div>
-    <div class="progress-text" id="mcProgressText"></div>
+    <div class="progress-row">
+      <div class="progress-text" id="mcProgressText"></div>
+      <button id="mcCancelBtn" class="danger" title="Dừng sau khi xong item hiện tại — không cắt giữa chừng 1 thao tác Premiere để tránh hỏng project.">⏸ Dừng</button>
+    </div>
   </div>
 
   <div id="log"></div>

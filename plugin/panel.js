@@ -33,7 +33,18 @@
   // --------------------------------------------------------------------------
   const PHASE_LABEL = { video: "Video", image: "Ảnh", layout: "Clip" };
 
-  function showProgress() { $("mcProgressWrap").hidden = false; }
+  // Cờ huỷ dùng chung cho mọi thao tác chạy hàng loạt — actions.js kiểm tra cờ này GIỮA 2 item liên
+  // tiếp (không cắt ngang lúc đang chạy 1 executeTransaction), nên "Dừng" chỉ có hiệu lực sau khi
+  // item hiện tại xong, tránh làm hỏng project giữa chừng 1 thao tác Premiere.
+  let cancelRequested = false;
+  function shouldCancel() { return cancelRequested; }
+
+  function showProgress() {
+    cancelRequested = false;
+    $("mcCancelBtn").disabled = false;
+    $("mcCancelBtn").textContent = "⏸ Dừng";
+    $("mcProgressWrap").hidden = false;
+  }
   function hideProgress() {
     $("mcProgressWrap").hidden = true;
     $("mcProgressFill").style.width = "0%";
@@ -45,6 +56,13 @@
     const label = PHASE_LABEL[phase] || phase;
     $("mcProgressText").textContent = `${prefix ? prefix + " · " : ""}${label} ${done}/${total} (${pct}%)`;
   }
+
+  $("mcCancelBtn").addEventListener("click", () => {
+    cancelRequested = true;
+    $("mcCancelBtn").disabled = true;
+    $("mcCancelBtn").textContent = "Đang dừng…";
+    logLine("⏸ Đã yêu cầu dừng — sẽ dừng sau khi xong item/sequence hiện tại (không cắt giữa chừng).", "warn");
+  });
 
   $("pluginStatus").textContent = "🟢";
   $("mcVersion").textContent = `v${MIC_CHECK_VERSION}`;
@@ -232,7 +250,9 @@
 
     showProgress();
     let successCount = 0;
+    let stoppedEarly = false;
     for (let runIdx = 0; runIdx < runs.length; runIdx++) {
+      if (shouldCancel()) { stoppedEarly = true; break; }
       const run = runs[runIdx];
       const runPrefix = runs.length > 1 ? `Mã ${runIdx + 1}/${runs.length}` : "";
       const stem = run.cuesFile.name.replace(/\.cues\.json$/i, "");
@@ -252,7 +272,7 @@
           sequenceName,
           orientation,
           timebase: fpsRaw
-        }, (msg, level) => logLine("  " + msg, level), (p) => setProgress(runPrefix, p.phase, p.done, p.total));
+        }, (msg, level) => logLine("  " + msg, level), (p) => setProgress(runPrefix, p.phase, p.done, p.total), shouldCancel);
 
         logLine(`  ✅ "${result.sequenceName}" (${result.actualFps}fps) — ảnh: ${result.images.placed}/${result.totalCues}.`);
         $("mcLayoutTrack").value = result.imageVideoTrackIndex + 1; // +1: đổi từ chỉ số 0-based nội bộ sang số V Premiere hiển thị (V1=1, V2=2...)
@@ -262,6 +282,9 @@
         if (result.images.failed && result.images.failed.length > 0) {
           logLine(`  ⚠️ ${result.images.failed.length} ảnh đặt lỗi vị trí.`);
         }
+        if (result.images.cancelled) {
+          logLine(`  ⏸ Đã dừng theo yêu cầu — mới đặt ${result.images.placed}/${result.totalCues} ảnh của sequence này.`, "warn");
+        }
         logLine(`  ${result.nextStep}`);
         successCount++;
       } catch (e) {
@@ -269,7 +292,11 @@
       }
     }
 
-    logLine(`\n== Tổng kết: ${successCount}/${runs.length} sequence tạo thành công. ==`);
+    if (stoppedEarly) {
+      logLine(`\n⏸ Đã dừng theo yêu cầu — chạy được ${successCount}/${runs.length} sequence trước khi dừng.`, "warn");
+    } else {
+      logLine(`\n== Tổng kết: ${successCount}/${runs.length} sequence tạo thành công. ==`);
+    }
     if (notFoundCodes.length > 0) logLine(`Mã không tìm thấy file: ${notFoundCodes.join(", ")}`);
 
     hideProgress();
@@ -387,9 +414,14 @@
       const result = await applyImageLayout(
         { xPixels, yPixels, scalePercent, videoTrackIndex },
         (msg, level) => logLine("  " + msg, level),
-        (p) => setProgress("", p.phase, p.done, p.total)
+        (p) => setProgress("", p.phase, p.done, p.total),
+        shouldCancel
       );
-      logLine(`✅ Đã áp cho ${result.applied}/${result.total} clip trên V${vNumber}.`);
+      if (result.cancelled) {
+        logLine(`⏸ Đã dừng theo yêu cầu — áp được ${result.applied}/${result.total} clip trên V${vNumber}.`, "warn");
+      } else {
+        logLine(`✅ Đã áp cho ${result.applied}/${result.total} clip trên V${vNumber}.`);
+      }
       if (result.failed.length > 0) {
         logLine(`⚠️ ${result.failed.length} clip lỗi:`);
         for (const f of result.failed.slice(0, 5)) logLine(`   - index ${f.index}: ${f.error}`);
