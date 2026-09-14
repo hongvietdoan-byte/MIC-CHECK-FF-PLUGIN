@@ -35,6 +35,10 @@
   .row-split:last-child { margin-bottom: 0; }
   .row-split > .row { margin-bottom: 0; flex: 0 0 auto; gap: 3px; }
   .row-split > .row label { width: auto; flex-shrink: 0; }
+  /* Panel có thể bị kéo rộng hơn preferredDockedSize (200-800px theo manifest) — space-between giãn
+     đều khoảng cách giữa 3 nhóm Track/Scale %/Vị trí theo bề rộng thật, thay vì dồn cụm sát bên trái
+     và để trống hết phần còn lại bên phải khi panel rộng. Gap 7px vẫn là mức TỐI THIỂU lúc panel hẹp. */
+  .row-split.spread { justify-content: space-between; }
 
   .row select {
     appearance: none; -webkit-appearance: none;
@@ -155,7 +159,7 @@
 
   <div class="card">
     <div class="card-label">Điều chỉnh vị trí ảnh trên timeline</div>
-    <div class="row-split">
+    <div class="row-split spread">
       <div class="row">
         <label title="Số track V hiển thị trên timeline Premiere — vd ảnh nằm ở V2 thì gõ 2">Track</label>
         <input type="number" id="mcLayoutTrack" class="small" value="2" min="1" step="1">
